@@ -1,0 +1,28 @@
+# IDE / Editor Settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+
+# Task logs and temporary files
+*.log
+tmp/
+temp/
+
+# Environment Variables
+.env
+.env.local
+
+# Local build / caching directories
+.cache/
+.pytest_cache/
+.next/
+node_modules/
+backend/venv/
+backend/__pycache__/
+frontend/.next/
+frontend/node_modules/
