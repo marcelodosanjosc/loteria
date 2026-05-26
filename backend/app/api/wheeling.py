@@ -4,6 +4,9 @@ from app.database import get_db
 from app.schemas.saved_game import FechamentoRequest, FechamentoResponse, AplicarFiltrosRequest
 from app.services.combinatorics import gerar_fechamento_guloso
 from app.services.filters import filtrar_jogos
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -18,6 +21,12 @@ PRECOS_LOTERIAS = {
 @router.post("/gerar", response_model=FechamentoResponse)
 def gerar_fechamento(req: FechamentoRequest):
     slug = req.modalidade_slug.lower()
+    
+    logger.info(
+        f"API fechamento/gerar chamada. Modalidade: {slug}, "
+        f"garantia: {req.garantia}, condicao: {req.condicao}, "
+        f"dezenas selecionadas (total={len(req.dezenas_escolhidas)}): {req.dezenas_escolhidas}"
+    )
     
     # Validações preventivas de tamanho
     n = len(req.dezenas_escolhidas)
@@ -79,12 +88,24 @@ def gerar_fechamento(req: FechamentoRequest):
         preco_base = PRECOS_LOTERIAS.get(slug, 5.0)
         custo_estimado = len(jogos) * preco_base
         
+        logger.info(
+            f"Fechamento para '{slug}' gerado com sucesso. "
+            f"Total de cartões gerados: {len(jogos)}, Custo estimado: R$ {custo_estimado:.2f}"
+        )
+        
         return {
             "total_cartoes": len(jogos),
             "jogos": jogos,
             "custo_estimado": custo_estimado
         }
+    except ValueError as ve:
+        logger.warning(f"Erro de validação ao gerar fechamento para '{slug}': {str(ve)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(ve)
+        )
     except Exception as e:
+        logger.error(f"Erro crítico no motor de fechamento para '{slug}': {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erro interno no motor matemático de fechamentos: {str(e)}"
