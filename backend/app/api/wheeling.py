@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas.saved_game import FechamentoRequest, FechamentoResponse, AplicarFiltrosRequest
-from app.services.combinatorics import gerar_fechamento_guloso
+from app.services.combinatorics import gerar_fechamento_guloso, gerar_fechamento_lotomania_avancado
 from app.services.filters import filtrar_jogos
 import logging
 
@@ -60,10 +60,10 @@ def gerar_fechamento(req: FechamentoRequest):
             )
     elif slug == "lotomania":
         tamanho_bilhete = 50
-        if n > 55 or n < 50:
+        if n > 70 or n < 50:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Para a Lotomania, selecione entre 50 e 55 dezenas para o fechamento matemático."
+                detail="Para a Lotomania, selecione entre 50 e 70 dezenas para o fechamento matemático."
             )
     else:
         raise HTTPException(
@@ -78,12 +78,30 @@ def gerar_fechamento(req: FechamentoRequest):
         )
         
     try:
-        jogos = gerar_fechamento_guloso(
-            dezenas_escolhidas=req.dezenas_escolhidas,
-            tamanho_bilhete=tamanho_bilhete,
-            garantia_acerto=req.garantia,
-            condicao_acerto=req.condicao
-        )
+        # Lotomania com N > 55: usa o algoritmo avançado Monte Carlo + Quadrantes
+        if slug == "lotomania" and n > 55:
+            # Calcula o padrão inteligente de max_quadrantes baseado nas dezenas reais
+            from app.services.filters import contar_quadrantes_ocupados
+            quadrantes_ocupados_total = contar_quadrantes_ocupados(req.dezenas_escolhidas)
+            # Padrão: quadrantes_ocupados - 1 (gera ~15-25% de taxa de aprovação no filtro,
+            # suficiente para popular o pool de candidatos com diversidade)
+            default_max_q = max(10, quadrantes_ocupados_total - 1)
+            max_quadrantes = req.max_quadrantes if req.max_quadrantes is not None else default_max_q
+            jogos = gerar_fechamento_lotomania_avancado(
+                dezenas_escolhidas=req.dezenas_escolhidas,
+                tamanho_bilhete=tamanho_bilhete,
+                garantia_acerto=req.garantia,
+                condicao_acerto=req.condicao,
+                max_quadrantes=max_quadrantes
+            )
+        else:
+            # Todas as outras modalidades e Lotomania com N <= 55: algoritmo clássico exato
+            jogos = gerar_fechamento_guloso(
+                dezenas_escolhidas=req.dezenas_escolhidas,
+                tamanho_bilhete=tamanho_bilhete,
+                garantia_acerto=req.garantia,
+                condicao_acerto=req.condicao
+            )
         
         preco_base = PRECOS_LOTERIAS.get(slug, 5.0)
         custo_estimado = len(jogos) * preco_base

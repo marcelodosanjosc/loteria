@@ -41,6 +41,7 @@ class FechamentoRequest(BaseModel):
     dezenas_escolhidas: List[int]
     garantia: int
     condicao: int
+    max_quadrantes: Optional[int] = None  # Filtro de quadrantes (Lotomania avançada, padrão: 15)
 
 class FechamentoResponse(BaseModel):
     total_cartoes: int

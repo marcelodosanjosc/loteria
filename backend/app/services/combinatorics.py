@@ -1,5 +1,6 @@
 import math
 import itertools
+import random
 import numpy as np
 from typing import List, Tuple
 import logging
@@ -93,7 +94,6 @@ def gerar_fechamento_guloso(
     combinacoes_bilhetes = list(itertools.combinations(dezenas_escolhidas, tamanho_bilhete))
     
     # 3. Gerar ou amostrar os cenários possíveis de sorteio (condicao_acerto)
-    import random
     if num_sorteios > 100000:
         logger.info(
             f"Cenários de sorteio muito extensos ({num_sorteios}). "
@@ -188,4 +188,188 @@ def gerar_fechamento_guloso(
     )
     
     # Converter índices de volta para dezenas reais
+    return [sorted(list(combinacoes_bilhetes[idx])) for idx in jogos_selecionados_indices]
+
+
+def gerar_fechamento_lotomania_avancado(
+    dezenas_escolhidas: List[int],
+    tamanho_bilhete: int,
+    garantia_acerto: int,
+    condicao_acerto: int,
+    max_quadrantes: int = 15
+) -> List[List[int]]:
+    """
+    Algoritmo avançado de fechamento da Lotomania para N > 55 dezenas (até 70).
+
+    O algoritmo clássico (gerar_fechamento_guloso) enumera TODAS as combinações
+    possíveis de C(N, M) bilhetes, o que é inviável quando N > 55 pois C(70, 50)
+    ultrapassa 10^17 combinações.
+
+    Esta função resolve o problema usando:
+      1. Amostragem Monte Carlo: gera bilhetes candidatos aleatórios (50 de N)
+      2. Filtro de Quadrantes: elimina bilhetes que espalham dezenas por mais de
+         'max_quadrantes' dos 25 quadrantes do volante (4 dezenas cada)
+      3. Amostragem de Cenários: gera cenários representativos de sorteio
+      4. Set Cover Guloso Vetorizado: mesmo algoritmo NumPy otimizado
+
+    Parâmetros:
+        dezenas_escolhidas: dezenas selecionadas pelo jogador (até 70)
+        tamanho_bilhete: 50 (fixo Lotomania)
+        garantia_acerto: pontuação mínima garantida (ex: 16 ou 17)
+        condicao_acerto: quantos números do grupo precisam ser sorteados (ex: 20)
+        max_quadrantes: máximo de quadrantes ocupados por bilhete (padrão: 15)
+
+    Retorna:
+        Lista de jogos (bilhetes) otimizados com garantia estatística de acerto.
+    """
+    from app.services.filters import contar_quadrantes_ocupados
+
+    inicio_tempo = time.time()
+    dezenas_escolhidas = sorted(list(set(dezenas_escolhidas)))
+    n = len(dezenas_escolhidas)
+
+    logger.info(
+        f"Iniciando fechamento AVANÇADO Lotomania: dezenas={n}, bilhete={tamanho_bilhete}, "
+        f"garantia={garantia_acerto}, condicao={condicao_acerto}, max_quadrantes={max_quadrantes}"
+    )
+
+    # --- Atalhos matemáticos (idênticos ao algoritmo clássico) ---
+
+    # Atalho 1: Se n == tamanho_bilhete, só existe 1 aposta possível
+    if n == tamanho_bilhete:
+        logger.info("Atalho: dezenas == tamanho_bilhete. Retornando aposta única.")
+        return [dezenas_escolhidas]
+
+    # Atalho 2: Se o pior caso já garante o acerto mínimo solicitado
+    pior_caso_acertos = tamanho_bilhete - (n - condicao_acerto)
+    if pior_caso_acertos >= garantia_acerto:
+        logger.info(
+            f"Atalho: pior caso ({pior_caso_acertos}) >= garantia ({garantia_acerto}). "
+            "Retornando 1 bilhete simples."
+        )
+        return [dezenas_escolhidas[:tamanho_bilhete]]
+
+    # --- Fase 1: Geração de bilhetes candidatos via Monte Carlo + Filtro de Quadrantes ---
+
+    POOL_ALVO = 20000       # Quantidade-alvo de candidatos válidos
+    MAX_TENTATIVAS = 100000  # Limite de segurança contra loop infinito
+
+    candidatos_set: set = set()
+    tentativas = 0
+
+    logger.info(
+        f"Gerando pool de candidatos (alvo={POOL_ALVO}, "
+        f"filtro quadrantes <= {max_quadrantes})..."
+    )
+
+    while len(candidatos_set) < POOL_ALVO and tentativas < MAX_TENTATIVAS:
+        amostra = tuple(sorted(random.sample(dezenas_escolhidas, tamanho_bilhete)))
+        tentativas += 1
+
+        if amostra in candidatos_set:
+            continue
+
+        # Aplica o filtro de quadrantes: descarta bilhetes muito espalhados
+        quadrantes_usados = contar_quadrantes_ocupados(list(amostra))
+        if quadrantes_usados <= max_quadrantes:
+            candidatos_set.add(amostra)
+
+    combinacoes_bilhetes = list(candidatos_set)
+
+    logger.info(
+        f"Pool de candidatos: {len(combinacoes_bilhetes)} bilhetes válidos "
+        f"gerados em {tentativas} tentativas."
+    )
+
+    if len(combinacoes_bilhetes) == 0:
+        raise ValueError(
+            f"Não foi possível gerar bilhetes válidos com no máximo {max_quadrantes} quadrantes "
+            f"a partir das {n} dezenas selecionadas. Tente aumentar o limite de quadrantes "
+            f"ou reduzir a quantidade de dezenas."
+        )
+
+    # --- Fase 2: Amostragem de cenários de sorteio ---
+
+    NUM_CENARIOS = 12000
+    cenarios_set: set = set()
+    tentativas_cenarios = 0
+    max_tentativas_cenarios = NUM_CENARIOS * 3
+
+    while len(cenarios_set) < NUM_CENARIOS and tentativas_cenarios < max_tentativas_cenarios:
+        amostra = tuple(sorted(random.sample(dezenas_escolhidas, condicao_acerto)))
+        cenarios_set.add(amostra)
+        tentativas_cenarios += 1
+
+    combinacoes_sorteios = list(cenarios_set)
+    logger.info(f"Cenários amostrados: {len(combinacoes_sorteios)} cenários representativos.")
+
+    # --- Fase 3: Construção das matrizes binárias (representação vetorial) ---
+
+    dezena_para_indice = {d: idx for idx, d in enumerate(dezenas_escolhidas)}
+
+    T_bin = np.zeros((len(combinacoes_bilhetes), n), dtype=bool)
+    for idx, c in enumerate(combinacoes_bilhetes):
+        for d in c:
+            T_bin[idx, dezena_para_indice[d]] = True
+
+    D_bin = np.zeros((len(combinacoes_sorteios), n), dtype=bool)
+    for idx, c in enumerate(combinacoes_sorteios):
+        for d in c:
+            D_bin[idx, dezena_para_indice[d]] = True
+
+    # --- Fase 4: Multiplicação de matrizes chunked (cobertura) ---
+
+    logger.info("Construindo matriz de cobertura (chunked)...")
+    cobertura = np.zeros((len(combinacoes_bilhetes), len(combinacoes_sorteios)), dtype=bool)
+    chunk_size = 2000
+    D_bin_T = D_bin.astype(np.int8).T
+
+    for i in range(0, len(combinacoes_bilhetes), chunk_size):
+        chunk_T = T_bin[i:i + chunk_size].astype(np.int8)
+        cobertura[i:i + chunk_size] = np.dot(chunk_T, D_bin_T) >= garantia_acerto
+
+    # Limpeza de memória imediata
+    del T_bin
+    del D_bin
+    del D_bin_T
+
+    # --- Fase 5: Algoritmo Guloso Set Cover vetorizado ---
+
+    logger.info("Executando Set Cover guloso vetorizado...")
+    jogos_selecionados_indices = []
+    cobertos = np.zeros(len(combinacoes_sorteios), dtype=bool)
+    bilhetes_ativos = np.ones(len(combinacoes_bilhetes), dtype=bool)
+
+    cobertura_counts = np.sum(cobertura, axis=1)
+
+    while not np.all(cobertos):
+        best_idx = np.argmax(np.where(bilhetes_ativos, cobertura_counts, -1))
+
+        if cobertura_counts[best_idx] <= 0:
+            break
+
+        jogos_selecionados_indices.append(best_idx)
+        bilhetes_ativos[best_idx] = False
+
+        novas_coberturas = cobertura[best_idx] & ~cobertos
+        newly_covered_indices = np.where(novas_coberturas)[0]
+
+        if len(newly_covered_indices) == 0:
+            break
+
+        cobertos[newly_covered_indices] = True
+        cobertura_counts -= np.sum(cobertura[:, newly_covered_indices], axis=1)
+
+    # --- Relatório final ---
+
+    tempo_decorrido = time.time() - inicio_tempo
+    cobertura_pct = np.sum(cobertos) / len(combinacoes_sorteios) * 100
+
+    logger.info(
+        f"Fechamento avançado Lotomania FINALIZADO: "
+        f"{len(jogos_selecionados_indices)} cartões selecionados, "
+        f"cobertura estatística: {cobertura_pct:.1f}%, "
+        f"tempo: {tempo_decorrido:.3f}s"
+    )
+
     return [sorted(list(combinacoes_bilhetes[idx])) for idx in jogos_selecionados_indices]
