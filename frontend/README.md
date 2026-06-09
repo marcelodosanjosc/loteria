@@ -54,6 +54,8 @@ Calcula a chance de ganho em tempo real ao alterar a seleção de dezenas.
 ### 4.3 Fechamento (`/fechamento/page.tsx`)
 Permite selecionar o grupo de dezenas para cercar as garantias de acerto.
 - O usuário escolhe o prêmio garantido ($K$) caso acerte $T$ dezenas sorteadas.
+- Suporta a seleção de até 70 dezenas na Lotomania (limite ampliado de 55 para 70).
+- Exibe dinamicamente o controle deslizante (slider) de **Filtro de Quadrantes** para a Lotomania quando a seleção é maior que 55 dezenas (com valor sugerido inteligente correspondente a `quadrantes_ocupados - 1`).
 - O resultado gera uma lista de bilhetes otimizados que podem ser exportados como arquivo `.txt` para o computador ou salvos no perfil do usuário.
 - Inclui o botão **Filtrar Resultados** para enviar as combinações geradas diretamente para a tela de filtros sem a necessidade de digitação manual.
 
@@ -62,6 +64,7 @@ Aplica restrições matemáticas e remove cartões de baixa probabilidade.
 - Os sliders ajustam o intervalo aceitável para a soma total de dezenas da aposta.
 - Inputs numéricos configuram a quantidade aceitável de dezenas primas, pares e números de Fibonacci.
 - Selectors configuram o limite máximo tolerado de dezenas vizinhas consecutivas.
+- O painel de resultados "Jogos Filtrados e Aceitos" possui um botão **Exportar TXT** para baixar diretamente o arquivo `.txt` contendo a listagem dos jogos que passaram com sucesso pelos filtros aplicados.
 
 ### 4.5 Estatísticas (`/estatisticas/page.tsx`)
 Estudo gráfico e analítico do histórico local de resultados oficiais:
