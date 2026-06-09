@@ -12,6 +12,7 @@ export default function FechamentoPage() {
   const [saving, setSaving] = useState<boolean>(false);
   const [jogosGerados, setJogosGerados] = useState<number[][]>([]);
   const [custoTotal, setCustoTotal] = useState<number>(0);
+  const [maxQuadrantes, setMaxQuadrantes] = useState<number>(15);
   const [toast, setToast] = useState<{
     show: boolean;
     title: string;
@@ -89,7 +90,7 @@ export default function FechamentoPage() {
           total: 100,
           label: 'Lotomania',
           minSelect: 50,
-          maxSelect: 53, // Restringido a 53 para manter a matriz de cobertura abaixo de 350MB de RAM (evitando congelamento)
+          maxSelect: 70, // Fechamento avançado com Monte Carlo + Quadrantes para N > 55
           columns: 10,
           ticketSize: 50,
           drawnCount: 20, // 20 números sorteados na Lotomania
@@ -152,6 +153,7 @@ export default function FechamentoPage() {
     setJogosGerados([]);
     setGarantia(config.defaultGarantia);
     setCondicao(config.drawnCount);
+    setMaxQuadrantes(15);
   }, [modalidade, config]);
 
   const toggleNumber = (num: number) => {
@@ -183,7 +185,8 @@ export default function FechamentoPage() {
         modalidade,
         selectedNumbers,
         garantia,
-        condicao
+        condicao,
+        modalidade === 'lotomania' ? maxQuadrantes : undefined
       );
       setJogosGerados(res.jogos);
       setCustoTotal(res.custo_estimado);
@@ -314,6 +317,43 @@ export default function FechamentoPage() {
               Quanto mais dezenas selecionar, maior será a quantidade de cartões necessários para manter a garantia matemática.
             </p>
           </div>
+
+          {/* Controle de Quadrantes — Visível apenas para Lotomania */}
+          {modalidade === 'lotomania' && (() => {
+            // Calcula quantos quadrantes as dezenas selecionadas realmente ocupam
+            const quadrantesOcupados = new Set(selectedNumbers.map(d => Math.floor((d - 1) / 4))).size;
+            const maxSlider = Math.max(quadrantesOcupados, 10);
+            const minSlider = Math.max(Math.floor(quadrantesOcupados * 0.4), 5);
+
+            return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+              <label style={{ fontSize: '14px', color: '#a5b4fc', fontWeight: 600 }}>
+                🔲 Filtro de Quadrantes: {maxQuadrantes} de {quadrantesOcupados} ocupados
+              </label>
+              <input
+                type="range"
+                min={minSlider}
+                max={maxSlider}
+                value={Math.min(maxQuadrantes, maxSlider)}
+                onChange={(e) => setMaxQuadrantes(Number(e.target.value))}
+                style={{ accentColor: '#6366f1', cursor: 'pointer' }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#64748b' }}>
+                <span>{minSlider} (mais restritivo)</span>
+                <span>{maxSlider} (sem filtro)</span>
+              </div>
+              <p style={{ fontSize: '11px', color: '#94a3b8', margin: 0 }}>
+                O volante é dividido em 25 quadrantes de 4 dezenas. Limitar os quadrantes
+                elimina bilhetes com dezenas muito espalhadas, reduzindo o custo total.
+                {selectedNumbers.length > 55 && (
+                  <span style={{ display: 'block', marginTop: '4px', color: '#fbbf24', fontWeight: 600 }}>
+                    ⚡ Modo avançado ativo ({selectedNumbers.length} dezenas): usando algoritmo Monte Carlo + Quadrantes.
+                  </span>
+                )}
+              </p>
+            </div>
+            );
+          })()}
 
           <button 
             className="btn btn-primary"

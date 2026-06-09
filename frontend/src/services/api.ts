@@ -86,14 +86,19 @@ export const loteriaApi = {
     modalidadeSlug: string,
     dezenasEscolhidas: number[],
     garantia: number,
-    condicao: number
+    condicao: number,
+    maxQuadrantes?: number
   ): Promise<FechamentoResponse> => {
-    const response = await api.post('/fechamentos/gerar', {
+    const body: Record<string, unknown> = {
       modalidade_slug: modalidadeSlug,
       dezenas_escolhidas: dezenasEscolhidas,
       garantia,
       condicao,
-    });
+    };
+    if (maxQuadrantes !== undefined && maxQuadrantes !== null) {
+      body.max_quadrantes = maxQuadrantes;
+    }
+    const response = await api.post('/fechamentos/gerar', body);
     return response.data;
   },
 
