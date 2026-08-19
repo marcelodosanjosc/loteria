@@ -374,9 +374,40 @@ export default function FiltrosPage() {
           {/* Jogos Pós Filtro */}
           {hasFiltered && (
             <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderColor: '#10b981' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#10b981' }}>
-                Jogos Filtrados e Aceitos ({jogosFiltrados.length})
-              </h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#10b981' }}>
+                  Jogos Filtrados e Aceitos ({jogosFiltrados.length})
+                </h3>
+                {jogosFiltrados.length > 0 && (
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      const linhas = jogosFiltrados.map(
+                        (jogo, i) => `Jogo ${String(i + 1).padStart(3, '0')}: ${jogo.map(n => config.formatNumber(n)).join(' - ')}`
+                      );
+                      const cabecalho = [
+                        `LottoMath - Jogos Filtrados`,
+                        `Modalidade: ${config.label}`,
+                        `Total de jogos: ${jogosFiltrados.length}`,
+                        `Data: ${new Date().toLocaleDateString('pt-BR')}`,
+                        `${'─'.repeat(50)}`,
+                        ''
+                      ];
+                      const txt = [...cabecalho, ...linhas].join('\n');
+                      const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `filtrados-${modalidade}-${jogosFiltrados.length}-jogos.txt`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: 'white', fontSize: '13px', padding: '6px 14px' }}
+                  >
+                    📄 Exportar TXT
+                  </button>
+                )}
+              </div>
               {jogosFiltrados.length === 0 ? (
                 <p style={{ fontSize: '14px', color: '#64748b', textAlign: 'center', padding: '10px 0' }}>
                   Nenhum jogo atendeu a todas as restrições selecionadas. Tente afrouxar os filtros.

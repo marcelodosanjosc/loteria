@@ -71,8 +71,9 @@ O gerador de fechamentos em [combinatorics.py](file:///home/marcelo/Documentos/l
 - **Mega-Sena**: Tamanho bilhete = 6, limite de seleção $N \le 15$ dezenas.
 - **Lotofácil**: Tamanho bilhete = 15, limite de seleção $N \le 21$ dezenas.
 - **Quina**: Tamanho bilhete = 5, limite de seleção $N \le 18$ dezenas.
-- **Dupla-Sena**: Tamanho bilhete = 6, limite de seleção $N \le 15$ dezenas.
-- **Lotomania**: Tamanho bilhete = 50, limite de seleção obrigatório de $50 \le N \le 55$ dezenas (devido à complexidade computacional para bilhetes grandes).
+- **Lotomania**: Tamanho bilhete = 50, limite de seleção de $50 \le N \le 70$ dezenas.
+  - Para $N \le 55$, o sistema utiliza o algoritmo exato clássico de Set Cover.
+  - Para $56 \le N \le 70$ dezenas, o sistema adota um algoritmo heurístico avançado de Monte Carlo + Set Cover com filtragem por quadrantes (25 quadrantes de 4 dezenas cada no volante clássico). Aceita o parâmetro opcional `max_quadrantes` no backend, com valor padrão dinâmico calculado como `quadrantes_ocupados - 1`.
 
 ### 4.2 Filtros de Padrões Estatísticos (`filtrar_jogos`)
 Filtra cartões indesejados a partir dos critérios:
@@ -98,7 +99,7 @@ Filtra cartões indesejados a partir dos critérios:
 - `GET /{slug}/sorteios`: Lista o histórico paginado de concursos.
 
 ### Fechamentos e Filtros (`/api/v1/fechamentos`)
-- `POST /gerar`: Rota central do motor matemático para gerar matrizes de fechamento.
+- `POST /gerar`: Rota central do motor matemático para gerar matrizes de fechamento. Aceita parâmetro opcional `max_quadrantes` (inteiro) no corpo da requisição para a modalidade Lotomania.
 - `POST /filtrar`: Filtra uma lista de jogos gerados de acordo com os filtros selecionados.
 
 ### Jogos do Usuário (`/api/v1/jogos`)

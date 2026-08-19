@@ -143,3 +143,31 @@ def filtrar_jogos(
             jogos_filtrados.append(jogo)
             
     return jogos_filtrados
+
+
+# =============================================================================
+# Funções de Quadrantes para Lotomania Avançada
+# =============================================================================
+# O volante da Lotomania (100 dezenas) é dividido em 25 quadrantes de 4 dezenas:
+#   Q0:  [1, 2, 3, 4]
+#   Q1:  [5, 6, 7, 8]
+#   Q2:  [9, 10, 11, 12]
+#   ...
+#   Q24: [97, 98, 99, 100]
+# Limitar bilhetes a no máximo 15 quadrantes elimina combinações "espalhadas"
+# que estatisticamente são improváveis, reduzindo drasticamente o custo total.
+# =============================================================================
+
+def obter_quadrante(dezena: int) -> int:
+    """Retorna o índice do quadrante (0–24) de uma dezena (1–100)."""
+    return (dezena - 1) // 4
+
+
+def contar_quadrantes_ocupados(jogo: List[int]) -> int:
+    """Conta quantos quadrantes distintos do volante são ocupados por um bilhete."""
+    return len({obter_quadrante(d) for d in jogo})
+
+
+def filtro_quadrantes(jogo: List[int], max_quadrantes: int = 15) -> bool:
+    """Retorna True se o bilhete usa no máximo 'max_quadrantes' quadrantes."""
+    return contar_quadrantes_ocupados(jogo) <= max_quadrantes

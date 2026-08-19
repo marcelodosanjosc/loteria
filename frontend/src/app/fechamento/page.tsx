@@ -12,6 +12,37 @@ export default function FechamentoPage() {
   const [saving, setSaving] = useState<boolean>(false);
   const [jogosGerados, setJogosGerados] = useState<number[][]>([]);
   const [custoTotal, setCustoTotal] = useState<number>(0);
+  const [maxQuadrantes, setMaxQuadrantes] = useState<number>(15);
+  const [toast, setToast] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'warning';
+  }>({
+    show: false,
+    title: '',
+    message: '',
+    type: 'success'
+  });
+
+  const showToast = (title: string, message: string, type: 'success' | 'error' | 'warning' = 'success') => {
+    setToast({
+      show: true,
+      title,
+      message,
+      type
+    });
+  };
+
+  useEffect(() => {
+    if (toast.show) {
+      const timer = setTimeout(() => {
+        setToast(prev => ({ ...prev, show: false }));
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast.show]);
+
 
   // Configurações de fechamento e limites por modalidade
   const config = useMemo(() => {
@@ -59,7 +90,7 @@ export default function FechamentoPage() {
           total: 100,
           label: 'Lotomania',
           minSelect: 50,
-          maxSelect: 53, // Restringido para manter processamento rápido (local)
+          maxSelect: 70, // Fechamento avançado com Monte Carlo + Quadrantes para N > 55
           columns: 10,
           ticketSize: 50,
           drawnCount: 20, // 20 números sorteados na Lotomania
@@ -122,6 +153,7 @@ export default function FechamentoPage() {
     setJogosGerados([]);
     setGarantia(config.defaultGarantia);
     setCondicao(config.drawnCount);
+    setMaxQuadrantes(15);
   }, [modalidade, config]);
 
   const toggleNumber = (num: number) => {
@@ -139,7 +171,11 @@ export default function FechamentoPage() {
   // Dispara a geração matemática de fechamento no backend FastAPI
   const gerarFechamentoBackend = async () => {
     if (selectedNumbers.length < config.minSelect) {
-      alert(`Selecione pelo menos ${config.minSelect} dezenas no volante.`);
+      showToast(
+        "Dezenas Insuficientes",
+        `Por favor, selecione pelo menos ${config.minSelect} dezenas no volante para prosseguir.`,
+        'warning'
+      );
       return;
     }
     
@@ -149,14 +185,26 @@ export default function FechamentoPage() {
         modalidade,
         selectedNumbers,
         garantia,
-        condicao
+        condicao,
+        modalidade === 'lotomania' ? maxQuadrantes : undefined
       );
       setJogosGerados(res.jogos);
       setCustoTotal(res.custo_estimado);
+      
+      const count = res.jogos.length;
+      showToast(
+        "Fechamento Gerado!",
+        `O fechamento matemático da ${config.label} foi gerado com sucesso com ${count} ${count === 1 ? 'cartão otimizado' : 'cartões otimizados'}.`,
+        'success'
+      );
     } catch (err: any) {
       console.error(err);
       const detail = err.response?.data?.detail || "Erro desconhecido ao processar fechamento no servidor.";
-      alert(`Erro: ${detail}`);
+      showToast(
+        "Erro na Geração",
+        detail,
+        'error'
+      );
     } finally {
       setLoading(false);
     }
@@ -165,19 +213,33 @@ export default function FechamentoPage() {
   const salvarJogosBackend = async () => {
     const token = localStorage.getItem('lottomath_token');
     if (!token) {
-      alert("Apenas usuários cadastrados e logados podem salvar jogos no sistema.");
-      window.location.href = '/login';
+      showToast(
+        "Acesso Restrito",
+        "Apenas usuários cadastrados e logados podem salvar jogos no sistema.",
+        'warning'
+      );
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 2000);
       return;
     }
 
     setSaving(true);
     try {
       await loteriaApi.salvarJogo(modalidade, "fechamento", jogosGerados);
-      alert("Jogos salvos com sucesso na sua conta!");
+      showToast(
+        "Jogos Salvos!",
+        "As combinações geradas foram salvas com sucesso na sua conta.",
+        'success'
+      );
     } catch (err: any) {
       console.error(err);
       const detail = err.response?.data?.detail || "Erro ao salvar jogos.";
-      alert(`Erro: ${detail}`);
+      showToast(
+        "Erro ao Salvar",
+        detail,
+        'error'
+      );
     } finally {
       setSaving(false);
     }
@@ -255,6 +317,43 @@ export default function FechamentoPage() {
               Quanto mais dezenas selecionar, maior será a quantidade de cartões necessários para manter a garantia matemática.
             </p>
           </div>
+
+          {/* Controle de Quadrantes — Visível apenas para Lotomania */}
+          {modalidade === 'lotomania' && (() => {
+            // Calcula quantos quadrantes as dezenas selecionadas realmente ocupam
+            const quadrantesOcupados = new Set(selectedNumbers.map(d => Math.floor((d - 1) / 4))).size;
+            const maxSlider = Math.max(quadrantesOcupados, 10);
+            const minSlider = Math.max(Math.floor(quadrantesOcupados * 0.4), 5);
+
+            return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+              <label style={{ fontSize: '14px', color: '#a5b4fc', fontWeight: 600 }}>
+                🔲 Filtro de Quadrantes: {maxQuadrantes} de {quadrantesOcupados} ocupados
+              </label>
+              <input
+                type="range"
+                min={minSlider}
+                max={maxSlider}
+                value={Math.min(maxQuadrantes, maxSlider)}
+                onChange={(e) => setMaxQuadrantes(Number(e.target.value))}
+                style={{ accentColor: '#6366f1', cursor: 'pointer' }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#64748b' }}>
+                <span>{minSlider} (mais restritivo)</span>
+                <span>{maxSlider} (sem filtro)</span>
+              </div>
+              <p style={{ fontSize: '11px', color: '#94a3b8', margin: 0 }}>
+                O volante é dividido em 25 quadrantes de 4 dezenas. Limitar os quadrantes
+                elimina bilhetes com dezenas muito espalhadas, reduzindo o custo total.
+                {selectedNumbers.length > 55 && (
+                  <span style={{ display: 'block', marginTop: '4px', color: '#fbbf24', fontWeight: 600 }}>
+                    ⚡ Modo avançado ativo ({selectedNumbers.length} dezenas): usando algoritmo Monte Carlo + Quadrantes.
+                  </span>
+                )}
+              </p>
+            </div>
+            );
+          })()}
 
           <button 
             className="btn btn-primary"
@@ -391,6 +490,207 @@ export default function FechamentoPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Estilos e Notificações Toast Premium */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes toastSlideIn {
+          from {
+            transform: translateY(-20px) scale(0.95);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+          }
+        }
+
+        @keyframes toastSlideOut {
+          from {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+          }
+          to {
+            transform: translateY(-20px) scale(0.95);
+            opacity: 0;
+          }
+        }
+
+        @keyframes toastProgressShrink {
+          from {
+            width: 100%;
+          }
+          to {
+            width: 0%;
+          }
+        }
+
+        .premium-toast-container {
+          position: fixed;
+          top: 24px;
+          right: 24px;
+          z-index: 9999;
+          pointer-events: none;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .premium-toast-card {
+          pointer-events: auto;
+          min-width: 320px;
+          max-width: 420px;
+          background: rgba(15, 23, 42, 0.85);
+          backdrop-filter: blur(16px) saturate(180%);
+          -webkit-backdrop-filter: blur(16px) saturate(180%);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 12px;
+          box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7);
+          padding: 16px 20px 18px 20px;
+          overflow: hidden;
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          animation: toastSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          transition: all 0.3s ease;
+        }
+
+        .premium-toast-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .premium-toast-title-container {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .premium-toast-icon-wrapper {
+          border-radius: 50%;
+          padding: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 24px;
+          height: 24px;
+        }
+
+        .premium-toast-icon-wrapper.success {
+          color: #10b981;
+          background: rgba(16, 185, 129, 0.15);
+          border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .premium-toast-icon-wrapper.error {
+          color: #ef4444;
+          background: rgba(239, 68, 68, 0.15);
+          border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .premium-toast-icon-wrapper.warning {
+          color: #f59e0b;
+          background: rgba(245, 158, 11, 0.15);
+          border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+
+        .premium-toast-title {
+          font-weight: 700;
+          font-size: 15px;
+          color: #f8fafc;
+        }
+
+        .premium-toast-message {
+          font-size: 13px;
+          color: #94a3b8;
+          line-height: 1.5;
+          padding-left: 34px;
+        }
+
+        .premium-toast-close-btn {
+          background: none;
+          border: none;
+          color: #64748b;
+          cursor: pointer;
+          padding: 4px;
+          border-radius: 6px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
+        }
+
+        .premium-toast-close-btn:hover {
+          color: #f8fafc;
+          background: rgba(255, 255, 255, 0.08);
+        }
+
+        .premium-toast-progress {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          height: 3px;
+          animation: toastProgressShrink 5s linear forwards;
+        }
+
+        .premium-toast-progress.success {
+          background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+        }
+
+        .premium-toast-progress.error {
+          background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%);
+        }
+
+        .premium-toast-progress.warning {
+          background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
+        }
+      ` }} />
+
+      {toast.show && (
+        <div className="premium-toast-container">
+          <div className="premium-toast-card">
+            <div className="premium-toast-header">
+              <div className="premium-toast-title-container">
+                <span className={`premium-toast-icon-wrapper ${toast.type}`}>
+                  {toast.type === 'success' && (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                  )}
+                  {toast.type === 'error' && (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  )}
+                  {toast.type === 'warning' && (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                      <line x1="12" y1="9" x2="12" y2="13"></line>
+                      <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                  )}
+                </span>
+                <span className="premium-toast-title">{toast.title}</span>
+              </div>
+              <button 
+                className="premium-toast-close-btn" 
+                onClick={() => setToast(prev => ({ ...prev, show: false }))}
+                aria-label="Fechar notificação"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+            <div className="premium-toast-message">{toast.message}</div>
+            <div className={`premium-toast-progress ${toast.type}`}></div>
           </div>
         </div>
       )}
