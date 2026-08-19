@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Menu do Sistema LottoMath</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <a class="brand" href="#top" aria-label="Voltar ao topo">LottoMath</a>
+      <nav class="top-nav" aria-label="Menu de telas documentadas">
+        <a href="#login">Login</a>
+        <a href="#dashboard">Dashboard</a>
+        <a href="#simulador">Simulador</a>
+        <a href="#fechamentos">Fechamentos</a>
+        <a href="#filtros">Filtros</a>
+        <a href="#estatisticas">Estatísticas</a>
+        <a href="#meus-jogos">Meus Jogos</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero" aria-labelledby="page-title">
+        <div class="hero-copy">
+          <p class="eyebrow">Documentação visual</p>
+          <h1 id="page-title">Menu de Uso do Sistema LottoMath</h1>
+          <p>
+            Catálogo navegável das telas testadas com Playwright, usando a documentação
+            principal e os prints gerados em <code>docs-sistema</code>.
+          </p>
+        </div>
+        <div class="hero-panel" aria-label="Resumo da documentação">
+          <span class="hero-number">7</span>
+          <span class="hero-label">telas documentadas</span>
+          <span class="hero-note">HTML e CSS estáticos</span>
+        </div>
+      </section>
+
+      <section class="status-strip" aria-label="Status dos testes">
+        <article>
+          <span class="status-dot ok"></span>
+          <strong>Fluxos principais validados</strong>
+          <p>Login, simulação, fechamento, filtros e jogos salvos responderam com sucesso.</p>
+        </article>
+        <article>
+          <span class="status-dot warn"></span>
+          <strong>Pontos de atenção</strong>
+          <p>API de estatísticas e favicon retornaram 404 durante a navegação.</p>
+        </article>
+        <article>
+          <span class="status-dot warn"></span>
+          <strong>Mobile</strong>
+          <p>O menu original do sistema documentado apresentou rolagem horizontal em 390px.</p>
+        </article>
+      </section>
+
+      <section class="summary" aria-labelledby="summary-title">
+        <div class="section-heading">
+          <p class="eyebrow">Sumário</p>
+          <h2 id="summary-title">Telas documentadas</h2>
+        </div>
+        <div class="summary-grid">
+          <article class="summary-card">
+            <span class="screen-number">01</span>
+            <h3>Login</h3>
+            <p>Permite autenticar o usuário no sistema.</p>
+            <a href="#login">Ver tela</a>
+          </article>
+          <article class="summary-card">
+            <span class="screen-number">02</span>
+            <h3>Dashboard</h3>
+            <p>Apresenta alerta de jogo responsável, concursos e atalhos.</p>
+            <a href="#dashboard">Ver tela</a>
+          </article>
+          <article class="summary-card">
+            <span class="screen-number">03</span>
+            <h3>Simulador</h3>
+            <p>Calcula probabilidade, custo e jogos equivalentes.</p>
+            <a href="#simulador">Ver tela</a>
+          </article>
+          <article class="summary-card">
+            <span class="screen-number">04</span>
+            <h3>Fechamentos</h3>
+            <p>Gera matrizes de apostas otimizadas por garantia.</p>
+            <a href="#fechamentos">Ver tela</a>
+          </article>
+          <article class="summary-card">
+            <span class="screen-number">05</span>
+            <h3>Filtros</h3>
+            <p>Aplica critérios matemáticos aos jogos de entrada.</p>
+            <a href="#filtros">Ver tela</a>
+          </article>
+          <article class="summary-card warning-card">
+            <span class="screen-number">06</span>
+            <h3>Estatísticas</h3>
+            <p>Área de análise estatística; API documentada retornou 404.</p>
+            <a href="#estatisticas">Ver tela</a>
+          </article>
+          <article class="summary-card">
+            <span class="screen-number">07</span>
+            <h3>Meus Jogos</h3>
+            <p>Lista jogos salvos e permite exportação em TXT.</p>
+            <a href="#meus-jogos">Ver tela</a>
+          </article>
+        </div>
+      </section>
+
+      <section class="screen-section" id="login">
+        <div class="screen-copy">
+          <p class="route">/login</p>
+          <h2>1. Login</h2>
+          <p>Tela usada para autenticar usuários e liberar o acesso às funcionalidades protegidas.</p>
+          <h3>Elementos principais</h3>
+          <ul>
+            <li>Campo E-mail: identifica o usuário.</li>
+            <li>Campo Senha: recebe a senha de acesso.</li>
+            <li>Botão Acessar Conta: envia as credenciais para autenticação.</li>
+            <li>Abas Entrar e Criar Conta.</li>
+          </ul>
+          <p class="validation ok-text">Validação: login realizado com sucesso e redirecionamento para o Dashboard.</p>
+        </div>
+        <figure class="screen-shot">
+          <img src="../screenshots/login.png" alt="Screenshot da tela Login" />
+        </figure>
+      </section>
+
+      <section class="screen-section" id="dashboard">
+        <div class="screen-copy">
+          <p class="route">/</p>
+          <h2>2. Dashboard</h2>
+          <p>Página inicial com aviso legal, últimos concursos oficiais e atalhos para as ferramentas.</p>
+          <h3>Elementos principais</h3>
+          <ul>
+            <li>Alerta de jogo responsável e aviso legal.</li>
+            <li>Últimos concursos oficiais de Mega-Sena, Lotofácil e Quina.</li>
+            <li>Cards de acesso para Simulador, Fechamentos e Filtros.</li>
+            <li>Menu autenticado com Meus Jogos e Sair.</li>
+          </ul>
+          <p class="validation ok-text">Validação: rota retornou 200 e carregou o conteúdo principal.</p>
+        </div>
+        <figure class="screen-shot">
+          <img src="../screenshots/dashboard.png" alt="Screenshot da tela Dashboard" />
+        </figure>
+      </section>
+
+      <section class="screen-section" id="simulador">
+        <div class="screen-copy">
+          <p class="route">/simulador</p>
+          <h2>3. Simulador</h2>
+          <p>Tela para selecionar dezenas no volante e calcular análise matemática da aposta.</p>
+          <h3>Elementos principais</h3>
+          <ul>
+            <li>Seletor de modalidade: Mega-Sena, Lotofácil, Quina, Lotomania e Dupla-Sena.</li>
+            <li>Volante numérico com dezenas selecionáveis.</li>
+            <li>Contador de dezenas selecionadas.</li>
+            <li>Painel de jogos simples, probabilidade e custo estimado.</li>
+          </ul>
+          <p class="validation ok-text">Validação: seleção 01 a 06 gerou probabilidade 1 em 50.063.860 e custo R$ 5,00.</p>
+        </div>
+        <figure class="screen-shot">
+          <img src="../screenshots/simulador.png" alt="Screenshot da tela Simulador" />
+        </figure>
+      </section>
+
+      <section class="screen-section" id="fechamentos">
+        <div class="screen-copy">
+          <p class="route">/fechamento</p>
+          <h2>4. Fechamentos</h2>
+          <p>Gera fechamentos matemáticos a partir de dezenas selecionadas e parâmetros de garantia.</p>
+          <h3>Elementos principais</h3>
+          <ul>
+            <li>Seletores de modalidade, garantia K e condição T.</li>
+            <li>Volante de dezenas e contador de seleção.</li>
+            <li>Botão Gerar Fechamento.</li>
+            <li>Ações Salvar no Sistema, Filtrar Resultados e Exportar TXT.</li>
+          </ul>
+          <p class="validation ok-text">Validação: fechamento Mega-Sena gerou 1 cartão otimizado com custo R$ 5,00.</p>
+        </div>
+        <figure class="screen-shot">
+          <img src="../screenshots/fechamentos.png" alt="Screenshot da tela Fechamentos" />
+        </figure>
+      </section>
+
+      <section class="screen-section" id="filtros">
+        <div class="screen-copy">
+          <p class="route">/filtros</p>
+          <h2>5. Filtros</h2>
+          <p>Aplica regras condicionais em jogos de entrada e mantém apenas as combinações aprovadas.</p>
+          <h3>Elementos principais</h3>
+          <ul>
+            <li>Filtro por intervalo de somas.</li>
+            <li>Filtros por primos, Fibonacci, pares e vizinhos.</li>
+            <li>Lista de jogos de entrada.</li>
+            <li>Lista de jogos filtrados e botão Exportar TXT.</li>
+          </ul>
+          <p class="validation ok-text">Validação: filtros padrão aceitaram 1 jogo entre 4 entradas.</p>
+        </div>
+        <figure class="screen-shot">
+          <img src="../screenshots/filtros.png" alt="Screenshot da tela Filtros" />
+        </figure>
+      </section>
+
+      <section class="screen-section flagged" id="estatisticas">
+        <div class="screen-copy">
+          <p class="route">/estatisticas</p>
+          <h2>6. Estatísticas</h2>
+          <p>Tela de análise estatística por modalidade, dependente da API local de estatísticas.</p>
+          <h3>Elementos principais</h3>
+          <ul>
+            <li>Seletor de modalidade.</li>
+            <li>Área para dados estatísticos calculados.</li>
+            <li>Mensagem de indisponibilidade quando a API não responde.</li>
+          </ul>
+          <p class="validation warn-text">Atenção: GET /api/v1/analise/mega-sena/estatisticas retornou 404.</p>
+        </div>
+        <figure class="screen-shot">
+          <img src="../screenshots/estatisticas.png" alt="Screenshot da tela Estatísticas" />
+        </figure>
+      </section>
+
+      <section class="screen-section" id="meus-jogos">
+        <div class="screen-copy">
+          <p class="route">/jogos-salvos</p>
+          <h2>7. Meus Jogos</h2>
+          <p>Tela autenticada para visualizar apostas e fechamentos salvos na conta do usuário.</p>
+          <h3>Elementos principais</h3>
+          <ul>
+            <li>Card de jogo salvo com modalidade, tipo e data.</li>
+            <li>Prévia das apostas salvas.</li>
+            <li>Botão Exportar TXT.</li>
+            <li>Menu autenticado com botão Sair.</li>
+          </ul>
+          <p class="validation ok-text">Validação: /jogos-salvos retornou 200; /meus-jogos retornou 404.</p>
+        </div>
+        <figure class="screen-shot">
+          <img src="../screenshots/meus-jogos.png" alt="Screenshot da tela Meus Jogos" />
+        </figure>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <p>Gerado a partir de <code>docs-sistema/index.md</code> e <code>docs-sistema/screenshots/</code>.</p>
+      <a href="#top">Voltar ao topo</a>
+    </footer>
+  </body>
+</html>

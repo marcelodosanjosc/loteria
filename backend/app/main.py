@@ -3,9 +3,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.config import settings
-from app.api.router import api_router
 from app.database import engine, Base, SessionLocal
-from app.models.lottery import Modalidade
+import app.models  # Carrega todos os modelos no Base.metadata
+from app.models.lottery import Modalidade, Sorteio
+from app.api.router import api_router
 from app.services.sync_draws import sincronizar_todas_modalidades
 
 # Inicializa o banco de dados (Cria tabelas caso não existam)
@@ -110,11 +111,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+async def initial_sync_task():
+    db = SessionLocal()
+    try:
+        total_sorteios = db.query(Sorteio).count()
+        if total_sorteios == 0:
+            print("Nenhum sorteio encontrado no banco. Iniciando carga inicial de sorteios...")
+            resultado = await sincronizar_todas_modalidades(db, limit=100)
+            print(f"Carga inicial concluída: {resultado}")
+    except Exception as e:
+        print(f"Aviso durante carga inicial de sorteios: {e}")
+    finally:
+        db.close()
+
 # Eventos de Inicialização e Parada do Servidor
 @app.on_event("startup")
-def startup_event():
+async def startup_event():
     scheduler.start()
     print("Agendador diário de sincronização iniciado.")
+    asyncio.create_task(initial_sync_task())
 
 @app.on_event("shutdown")
 def shutdown_event():

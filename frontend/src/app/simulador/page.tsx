@@ -147,18 +147,45 @@ export default function SimuladorPage() {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '32px', alignItems: 'flex-start' }}>
         {/* Volante Virtual */}
         <div className="glass-panel" style={{ flex: '1 1 500px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <span style={{ fontSize: '14px', fontWeight: 600, color: '#94a3b8' }}>
               Dezenas Selecionadas: {selectedNumbers.length} / {config.max} (Mínimo: {config.min})
             </span>
-            {selectedNumbers.length > 0 && (
-              <button 
-                onClick={() => setSelectedNumbers([])} 
-                style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  const disponiveis = [...numbersArray];
+                  const selecionados: number[] = [];
+                  while (selecionados.length < config.min && disponiveis.length > 0) {
+                    const randIdx = Math.floor(Math.random() * disponiveis.length);
+                    selecionados.push(disponiveis[randIdx]);
+                    disponiveis.splice(randIdx, 1);
+                  }
+                  setSelectedNumbers(selecionados.sort((a, b) => a - b));
+                }}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                  border: '1px solid rgba(99, 102, 241, 0.3)',
+                  color: '#a5b4fc',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
               >
-                Limpar Seleção
+                🎲 Surpresinha ({config.min})
               </button>
-            )}
+              {selectedNumbers.length > 0 && (
+                <button 
+                  onClick={() => setSelectedNumbers([])} 
+                  style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+                >
+                  🧹 Limpar
+                </button>
+              )}
+            </div>
           </div>
 
           <div 
@@ -173,7 +200,7 @@ export default function SimuladorPage() {
               return (
                 <button
                   key={num}
-                  className={`lottery-ball ${isSelected ? 'active' : ''}`}
+                  className={`lottery-ball ${modalidade} ${isSelected ? 'active' : ''}`}
                   onClick={() => toggleNumber(num)}
                   style={{
                     width: config.total > 60 ? '36px' : '44px',

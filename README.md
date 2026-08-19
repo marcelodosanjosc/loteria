@@ -17,9 +17,9 @@ docker compose up --build
 ```
 
 Os serviços ficarão disponíveis em:
-- **Frontend (Next.js)**: `http://localhost:3000` (ou `http://localhost:3001` caso a porta 3000 esteja pré-ocupada).
-- **Backend (FastAPI)**: `http://localhost:8000` (documentação Swagger em `http://localhost:8000/docs`).
-- **Banco de Dados (PostgreSQL)**: Disponível na porta `5433` do host.
+- **Frontend (Next.js)**: `http://localhost:3000` (ou `http://localhost:3001`).
+- **Backend (FastAPI)**: `http://localhost:8001` (documentação Swagger em `http://localhost:8001/docs`).
+- **Banco de Dados (PostgreSQL)**: Disponível na porta `5434` do host.
 
 ---
 
@@ -35,7 +35,7 @@ O sistema suporta **5 modalidades** numéricas Caixa:
 - **Quina**: 80 dezenas no volante. Aposta padrão de 5 a 15 números.
 - **Lotomania**: 100 dezenas no volante. Aposta fixa de 50 números.
   - *Detalhe Visual*: O número `100` é armazenado como `100` no banco e APIs, mas no frontend é exibido visualmente como `'00'` seguindo a estética clássica do cartão físico.
-  - *Limitação de Fechamento*: Devido ao tamanho do bilhete ($M=50$), a combinatória de Set Cover para $N > 55$ dezenas é computacionalmente inviável. Portanto, restringiu-se a seleção do fechamento da Lotomania para a faixa rigorosa de **50 a 55 dezenas**.
+  - *Limitação e Algoritmo de Fechamento*: Para seleções pequenas ($50 \le N \le 55$ dezenas), o fechamento da Lotomania utiliza o algoritmo exato clássico de Set Cover. Para seleções maiores (de **56 a 70 dezenas**), o sistema adota um algoritmo heurístico avançado de Monte Carlo + Set Cover com filtro de quadrantes dinâmico (`max_quadrantes`), permitindo gerar fechamentos otimizados em segundos.
 - **Dupla-Sena**: 50 dezenas no volante. Aposta padrão de 6 a 15 números.
 
 ### 2. Arquitetura do Backend (FastAPI + NumPy + PostgreSQL)
@@ -45,7 +45,7 @@ O sistema suporta **5 modalidades** numéricas Caixa:
   - Um cron diário (`APScheduler`) está configurado para executar automaticamente todos os dias às **21:05 (Horário de Brasília/SP)** para puxar novos sorteios da Caixa.
   - Rota de sincronização manual: `POST /api/v1/analise/sincronizar-todos` ou `POST /api/v1/analise/{slug}/sincronizar?limit=100`. Os sorteios históricos (100 últimos concursos) já foram semeados para todas as modalidades.
 - **Motor de Otimização Combinatória (combinatorics.py)**:
-  - Os fechamentos matemáticos utilizam **NumPy** para paralelizar e vetorizar o cálculo do Set Cover, eliminando loops aninhados do Python. Aceleração de mais de 100x na geração de matrizes de fechamento.
+  - Os fechamentos matemáticos utilizam **NumPy** para paralelizar e vetorizar o cálculo do Set Cover, eliminando loops aninhados do Python. Aceleração de mais de 100x na geração de matrizes de fechamento. Para a Lotomania (N > 55), combina-se um pool inicial gerado via simulação de Monte Carlo com heurística de Set Cover e filtro de quadrantes.
 - **Autenticação e Limites (auth.py & games.py)**:
   - Sistema de registro e login com hash via `bcrypt` e JWT expiráveis.
   - O endpoint protegido `POST /api/v1/jogos/salvar` gerencia as cotas diárias de salvamento de jogos dos usuários (limite diário padrão de `100` registros por usuário).
@@ -54,7 +54,7 @@ O sistema suporta **5 modalidades** numéricas Caixa:
 - **Dashboard (/src/app/page.tsx)**: Exibe os últimos resultados de sorteios de cada loteria e links de ferramentas.
 - **Simulador (/src/app/simulador/page.tsx)**: Volante interativo que se adapta à quantidade de dezenas e colunas da modalidade ativa. Calcula custos e chances de ganhar da faixa principal enviando a contagem de dezenas para `/analise/probabilidade`.
 - **Fechamento (/src/app/fechamento/page.tsx)**: Gera matrizes cercadas com garantias de acertos (ex: Quadra se acertar 6 na Mega-Sena). Exibe o custo total estimado, permite salvar o jogo no perfil do usuário e exportar para arquivo `.txt`.
-- **Filtros (/src/app/filtros/page.tsx)**: Permite excluir cartões baseando-se em filtros matemáticos (somas, dezenas vizinhas, primos, Fibonacci e pares). É dinâmico por modalidade, ajustando as réguas de limites de acordo com a loteria.
+- **Filtros (/src/app/filtros/page.tsx)**: Permite excluir cartões baseando-se em filtros matemáticos (somas, dezenas vizinhas, primos, Fibonacci e pares). É dinâmico por modalidade, ajustando as réguas de limites de acordo com a loteria. Permite exportar os jogos resultantes aceitos diretamente para arquivos `.txt`.
 - **Estatísticas (/src/app/estatisticas/page.tsx)**: Exibe o balanço de paridade (par/ímpar) e gráficos de somas e tendências dos últimos 50 concursos com `recharts`, além das dezenas mais sorteadas e mais atrasadas.
 - **Jogos Salvos (/src/app/jogos-salvos/page.tsx)**: Área autenticada onde o usuário gerencia e exporta seus fechamentos e jogos otimizados de volta em formato `.txt`.
 

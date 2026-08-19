@@ -245,13 +245,91 @@ export default function FechamentoPage() {
     }
   };
 
+  // Exportação limpa de arquivo TXT com números separados por espaços
+  const exportarTxtLimpo = () => {
+    if (jogosGerados.length === 0) return;
+    const txt = jogosGerados
+      .map(jogo => jogo.map(n => config.formatNumber(n)).join(' '))
+      .join('\n');
+    
+    const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `fechamento-${modalidade}-${selectedNumbers.length}-dezenas.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    showToast(
+      "Arquivo Exportado!",
+      `Arquivo TXT gerado com sucesso contendo apenas os números separados por espaços (${jogosGerados.length} cartões).`,
+      'success'
+    );
+  };
+
+  // Copiar todas as apostas no formato limpo para a área de transferência
+  const copiarApostasFormatadas = () => {
+    if (jogosGerados.length === 0) return;
+    const txt = jogosGerados
+      .map(jogo => jogo.map(n => config.formatNumber(n)).join(' '))
+      .join('\n');
+
+    navigator.clipboard.writeText(txt);
+    showToast(
+      "Copiado!",
+      `${jogosGerados.length} apostas copiadas para a área de transferência em formato limpo!`,
+      'success'
+    );
+  };
+
+  // Copiar apenas 1 jogo específico
+  const copiarUnicoJogo = (jogo: number[], index: number) => {
+    const txt = jogo.map(n => config.formatNumber(n)).join(' ');
+    navigator.clipboard.writeText(txt);
+    showToast(
+      "Jogo Copiado!",
+      `Cartão #${index + 1} (${txt}) copiado!`,
+      'success'
+    );
+  };
+
+  // Gerador rápido de Surpresinha / Seleção Aleatória
+  const selecionarAleatorios = (qtdTarget?: number) => {
+    const target = qtdTarget || config.minSelect;
+    const disponiveis = [...numbersArray];
+    const selecionados: number[] = [];
+    while (selecionados.length < target && disponiveis.length > 0) {
+      const randIdx = Math.floor(Math.random() * disponiveis.length);
+      selecionados.push(disponiveis[randIdx]);
+      disponiveis.splice(randIdx, 1);
+    }
+    setSelectedNumbers(selecionados.sort((a, b) => a - b));
+  };
+
+  // Métricas do Volante
+  const dezenasParesCount = useMemo(() => selectedNumbers.filter(n => n % 2 === 0).length, [selectedNumbers]);
+  const dezenasImparesCount = useMemo(() => selectedNumbers.filter(n => n % 2 !== 0).length, [selectedNumbers]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h2 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '8px' }}>Gerador de Fechamentos (Matrizes)</h2>
-          <p style={{ color: '#94a3b8' }}>
-            Otimize seus jogos cercados por garantias matemáticas de acerto, gerando menos apostas.
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <h2 style={{ fontSize: '28px', fontWeight: 800 }}>Gerador de Fechamentos (Matrizes)</h2>
+            <span style={{ 
+              fontSize: '12px', 
+              padding: '4px 10px', 
+              borderRadius: '20px', 
+              backgroundColor: 'rgba(99, 102, 241, 0.15)', 
+              color: '#818cf8', 
+              border: '1px solid rgba(99, 102, 241, 0.3)',
+              fontWeight: 700
+            }}>
+              {config.label}
+            </span>
+          </div>
+          <p style={{ color: '#94a3b8', marginTop: '4px' }}>
+            Otimize seus jogos cercados por garantias matemáticas de acerto, reduzindo drasticamente o custo das apostas.
           </p>
         </div>
 
@@ -261,7 +339,7 @@ export default function FechamentoPage() {
           onChange={(e) => setModalidade(e.target.value)}
           style={{ 
             padding: '10px 20px', 
-            borderRadius: '8px', 
+            borderRadius: '10px', 
             backgroundColor: '#1e293b', 
             border: '1px solid #334155', 
             color: 'white', 
@@ -288,7 +366,7 @@ export default function FechamentoPage() {
             <select 
               value={garantia} 
               onChange={(e) => setGarantia(Number(e.target.value))}
-              style={{ padding: '8px', borderRadius: '6px', backgroundColor: '#1e293b', border: '1px solid #334155', color: 'white' }}
+              style={{ padding: '10px', borderRadius: '8px', backgroundColor: '#1e293b', border: '1px solid #334155', color: 'white', fontSize: '14px' }}
             >
               {config.opcoesGarantia.map(opt => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -301,7 +379,7 @@ export default function FechamentoPage() {
             <select 
               value={condicao} 
               onChange={(e) => setCondicao(Number(e.target.value))}
-              style={{ padding: '8px', borderRadius: '6px', backgroundColor: '#1e293b', border: '1px solid #334155', color: 'white' }}
+              style={{ padding: '10px', borderRadius: '8px', backgroundColor: '#1e293b', border: '1px solid #334155', color: 'white', fontSize: '14px' }}
             >
               <option value={config.drawnCount}>
                 Acertando {config.drawnCount} números do sorteio
@@ -310,23 +388,25 @@ export default function FechamentoPage() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <span style={{ fontSize: '14px', color: '#94a3b8' }}>
-              Dezenas Selecionadas: {selectedNumbers.length} / {config.maxSelect} (Mínimo: {config.minSelect})
-            </span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+              <span style={{ color: '#94a3b8' }}>Dezenas Selecionadas:</span>
+              <strong style={{ color: selectedNumbers.length >= config.minSelect ? '#10b981' : '#f59e0b' }}>
+                {selectedNumbers.length} / {config.maxSelect} (Mín: {config.minSelect})
+              </strong>
+            </div>
             <p style={{ fontSize: '12px', color: '#64748b' }}>
-              Quanto mais dezenas selecionar, maior será a quantidade de cartões necessários para manter a garantia matemática.
+              Quanto mais dezenas selecionar, maior será o cerco de combinação e a garantia matemática de prêmio.
             </p>
           </div>
 
           {/* Controle de Quadrantes — Visível apenas para Lotomania */}
           {modalidade === 'lotomania' && (() => {
-            // Calcula quantos quadrantes as dezenas selecionadas realmente ocupam
             const quadrantesOcupados = new Set(selectedNumbers.map(d => Math.floor((d - 1) / 4))).size;
             const maxSlider = Math.max(quadrantesOcupados, 10);
             const minSlider = Math.max(Math.floor(quadrantesOcupados * 0.4), 5);
 
             return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '14px', borderRadius: '10px', backgroundColor: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
               <label style={{ fontSize: '14px', color: '#a5b4fc', fontWeight: 600 }}>
                 🔲 Filtro de Quadrantes: {maxQuadrantes} de {quadrantesOcupados} ocupados
               </label>
@@ -344,7 +424,7 @@ export default function FechamentoPage() {
               </div>
               <p style={{ fontSize: '11px', color: '#94a3b8', margin: 0 }}>
                 O volante é dividido em 25 quadrantes de 4 dezenas. Limitar os quadrantes
-                elimina bilhetes com dezenas muito espalhadas, reduzindo o custo total.
+                elimina bilhetes com dezenas muito espalhadas.
                 {selectedNumbers.length > 55 && (
                   <span style={{ display: 'block', marginTop: '4px', color: '#fbbf24', fontWeight: 600 }}>
                     ⚡ Modo avançado ativo ({selectedNumbers.length} dezenas): usando algoritmo Monte Carlo + Quadrantes.
@@ -359,25 +439,55 @@ export default function FechamentoPage() {
             className="btn btn-primary"
             onClick={gerarFechamentoBackend}
             disabled={loading || selectedNumbers.length < config.minSelect}
-            style={{ width: '100%' }}
+            style={{ width: '100%', padding: '12px', fontSize: '15px', fontWeight: 700 }}
           >
-            {loading ? "Calculando no Servidor..." : "Gerar Fechamento"}
+            {loading ? "Calculando Matriz..." : "Gerar Fechamento"}
           </button>
         </div>
 
         {/* Volante de Seleção */}
         <div className="glass-panel" style={{ flex: '1 1 450px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ fontSize: '18px', fontWeight: 700 }}>Selecione as Dezenas ({config.label})</h3>
-            {selectedNumbers.length > 0 && (
-              <button 
-                onClick={() => setSelectedNumbers([])} 
-                style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: 700 }}>Volante de Seleção ({config.label})</h3>
+            
+            {/* Quick Actions */}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={() => selecionarAleatorios(config.minSelect)}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                  border: '1px solid rgba(99, 102, 241, 0.3)',
+                  color: '#a5b4fc',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+                title={`Seleciona ${config.minSelect} dezenas aleatórias`}
               >
-                Limpar
+                🎲 Surpresinha ({config.minSelect})
               </button>
-            )}
+              {selectedNumbers.length > 0 && (
+                <button 
+                  onClick={() => setSelectedNumbers([])} 
+                  style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+                >
+                  🧹 Limpar
+                </button>
+              )}
+            </div>
           </div>
+
+          {/* Quick Stats Bar */}
+          {selectedNumbers.length > 0 && (
+            <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: '#94a3b8', background: 'rgba(15, 23, 42, 0.4)', padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+              <span>Pares: <strong style={{ color: '#38bdf8' }}>{dezenasParesCount}</strong></span>
+              <span>Ímpares: <strong style={{ color: '#818cf8' }}>{dezenasImparesCount}</strong></span>
+              <span>Total Marcadas: <strong style={{ color: '#34d399' }}>{selectedNumbers.length}</strong></span>
+            </div>
+          )}
           
           <div 
             className="volante-grid"
@@ -391,7 +501,7 @@ export default function FechamentoPage() {
               return (
                 <button
                   key={num}
-                  className={`lottery-ball ${isSelected ? 'active' : ''}`}
+                  className={`lottery-ball ${modalidade} ${isSelected ? 'active' : ''}`}
                   onClick={() => toggleNumber(num)}
                   style={{
                     width: config.total > 60 ? '36px' : '44px',
@@ -410,21 +520,41 @@ export default function FechamentoPage() {
       {/* Seção de Resultados dos Bilhetes Gerados */}
       {jogosGerados.length > 0 && (
         <div className="glass-panel" style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '16px', flexWrap: 'wrap', gap: '16px' }}>
             <div>
-              <h3 style={{ fontSize: '20px', fontWeight: 700 }}>Jogos Otimizados Gerados ({jogosGerados.length} Cartões)</h3>
-              <p style={{ fontSize: '13px', color: '#10b981', marginTop: '2px', fontWeight: 600 }}>
-                Custo total estimado: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(custoTotal)}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <h3 style={{ fontSize: '20px', fontWeight: 700 }}>Fechamento Gerado ({jogosGerados.length} Cartões)</h3>
+                <span style={{ fontSize: '11px', backgroundColor: '#10b981', color: '#042f2e', padding: '2px 8px', borderRadius: '12px', fontWeight: 700 }}>
+                  Garantia {garantia} acertos
+                </span>
+              </div>
+              <p style={{ fontSize: '13px', color: '#34d399', marginTop: '4px', fontWeight: 600 }}>
+                Custo total das apostas: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(custoTotal)}
               </p>
             </div>
             
-            <div style={{ display: 'flex', gap: '10px' }}>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <button 
+                className="btn btn-secondary"
+                onClick={copiarApostasFormatadas}
+                title="Copiar todas as apostas em formato texto limpo (apenas números separados por espaço)"
+              >
+                📋 Copiar Apostas
+              </button>
+              <button 
+                className="btn btn-secondary"
+                onClick={exportarTxtLimpo}
+                style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: 'white' }}
+                title="Baixar arquivo TXT limpo contendo apenas números separados por espaços"
+              >
+                📄 Exportar TXT
+              </button>
               <button 
                 className="btn btn-secondary"
                 onClick={salvarJogosBackend}
                 disabled={saving}
               >
-                {saving ? "Salvando..." : "Salvar no Sistema"}
+                {saving ? "Salvando..." : "💾 Salvar"}
               </button>
               <button 
                 className="btn btn-secondary"
@@ -433,61 +563,68 @@ export default function FechamentoPage() {
                   sessionStorage.setItem('lottomath_modalidade_transfer', modalidade);
                   window.location.href = '/filtros';
                 }}
-                style={{ backgroundColor: 'var(--warning)', borderColor: 'var(--warning)', color: 'white' }}
+                style={{ backgroundColor: '#f59e0b', borderColor: '#f59e0b', color: 'white' }}
               >
-                Filtrar Resultados
-              </button>
-              <button 
-                className="btn btn-secondary"
-                onClick={() => {
-                  const txt = jogosGerados.map(j => j.join(',')).join('\n');
-                  const blob = new Blob([txt], { type: 'text/plain' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `fechamento-${modalidade}-${selectedNumbers.length}-dezenas.txt`;
-                  a.click();
-                }}
-                style={{ backgroundColor: 'var(--primary)', borderColor: 'var(--primary)', color: 'white' }}
-              >
-                Exportar TXT
+                ⚙️ Filtrar Resultados
               </button>
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px', maxHeight: '400px', overflowY: 'auto', paddingRight: '8px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '14px', maxHeight: '420px', overflowY: 'auto', paddingRight: '8px' }}>
             {jogosGerados.map((jogo, index) => (
               <div 
                 key={index} 
                 style={{ 
-                  backgroundColor: 'rgba(15, 23, 42, 0.4)', 
-                  border: '1px solid rgba(255, 255, 255, 0.05)', 
-                  borderRadius: '8px', 
-                  padding: '12px',
+                  backgroundColor: 'rgba(15, 23, 42, 0.5)', 
+                  border: '1px solid rgba(255, 255, 255, 0.08)', 
+                  borderRadius: '10px', 
+                  padding: '12px 14px',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '12px'
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                  transition: 'all 0.2s ease'
                 }}
               >
-                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>#{String(index + 1).padStart(2, '0')}</span>
-                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                  {jogo.map((num, nIdx) => (
-                    <span 
-                      key={nIdx} 
-                      style={{ 
-                        fontSize: '12px', 
-                        fontWeight: 700, 
-                        background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', 
-                        color: '#38bdf8', 
-                        padding: '2px 6px', 
-                        borderRadius: '4px',
-                        border: '1px solid rgba(56, 189, 248, 0.2)' 
-                      }}
-                    >
-                      {config.formatNumber(num)}
-                    </span>
-                  ))}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 700, minWidth: '26px' }}>#{String(index + 1).padStart(2, '0')}</span>
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                    {jogo.map((num, nIdx) => (
+                      <span 
+                        key={nIdx} 
+                        style={{ 
+                          fontSize: '12px', 
+                          fontWeight: 700, 
+                          background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', 
+                          color: '#38bdf8', 
+                          padding: '2px 6px', 
+                          borderRadius: '4px',
+                          border: '1px solid rgba(56, 189, 248, 0.25)' 
+                        }}
+                      >
+                        {config.formatNumber(num)}
+                      </span>
+                    ))}
+                  </div>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => copiarUnicoJogo(jogo, index)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#64748b',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    padding: '4px',
+                    borderRadius: '4px',
+                    transition: 'color 0.2s ease'
+                  }}
+                  title="Copiar este cartão (números por espaços)"
+                >
+                  📋
+                </button>
               </div>
             ))}
           </div>
