@@ -383,7 +383,7 @@ export default function FiltrosPage() {
                     <button
                       className="btn btn-secondary"
                       onClick={() => {
-                        const txt = jogosFiltrados.map(j => j.map(n => config.formatNumber(n)).join(' ')).join('\n');
+                        const txt = jogosFiltrados.map(j => [...j].sort((a, b) => a - b).map(n => config.formatNumber(n)).join(' ')).join('\n');
                         navigator.clipboard.writeText(txt);
                         alert(`${jogosFiltrados.length} jogos copiados em formato limpo!`);
                       }}
@@ -394,7 +394,7 @@ export default function FiltrosPage() {
                     <button
                       className="btn btn-secondary"
                       onClick={() => {
-                        const txt = jogosFiltrados.map(j => j.map(n => config.formatNumber(n)).join(' ')).join('\n');
+                        const txt = jogosFiltrados.map(j => [...j].sort((a, b) => a - b).map(n => config.formatNumber(n)).join(' ')).join('\n');
                         const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');

@@ -149,7 +149,7 @@ export interface TesteCegoResultadoItem {
   jogo: number[];
   acertos: number;
   dezenas_acertadas: number[];
-  premiado: bool;
+  premiado: boolean;
   faixa_premio?: string;
 }
 

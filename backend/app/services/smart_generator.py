@@ -9,6 +9,15 @@ from app.services.advanced_analytics import (
 
 PRIMOS_LOTOFACIL = {2, 3, 5, 7, 11, 13, 17, 19, 23}
 FIBONACCI_LOTOFACIL = {1, 2, 3, 5, 8, 13, 21}
+FIBONACCI_GERAL = {1, 2, 3, 5, 8, 13, 21, 34, 55, 89}
+
+def eh_primo(n: int) -> bool:
+    if n <= 1:
+        return False
+    for i in range(2, int(n**0.5) + 1):
+        if n % i == 0:
+            return False
+    return True
 
 def avaliar_jogo_lotofacil(
     jogo: List[int],
@@ -130,6 +139,112 @@ def avaliar_jogo_lotofacil(
     
     return round(min(100.0, score), 1), metricas, justificativas
 
+def avaliar_jogo(
+    jogo: List[int],
+    total_dezenas_globo: int = 25,
+    dezenas_por_jogo: int = 15,
+    ultimo_sorteio: Optional[List[int]] = None,
+    dezenas_quentes: Optional[List[int]] = None,
+    dezenas_atrasadas: Optional[List[int]] = None
+) -> tuple[float, Dict[str, Any], List[str]]:
+    """
+    Avalia o equilíbrio de qualquer jogo baseado nas características da modalidade.
+    """
+    if total_dezenas_globo == 25 and dezenas_por_jogo == 15:
+        return avaliar_jogo_lotofacil(jogo, ultimo_sorteio, dezenas_quentes, dezenas_atrasadas)
+
+    jogo_set = set(jogo)
+    justificativas = []
+    score = 0.0
+
+    # 1. Pares vs Ímpares (Até 30 pontos)
+    impares = sum(1 for d in jogo if d % 2 != 0)
+    pares = dezenas_por_jogo - impares
+    dif_paridade = abs(pares - impares)
+    if dif_paridade <= 1:
+        score += 30.0
+        justificativas.append(f"Excelente balanço de paridade: {impares} ímpares e {pares} pares")
+    elif dif_paridade <= 2:
+        score += 22.0
+        justificativas.append(f"Boa distribuição de paridade: {impares} ímpares e {pares} pares")
+    else:
+        score += 10.0
+        justificativas.append(f"Paridade assimétrica: {impares} ímpares e {pares} pares")
+
+    # 2. Soma das Dezenas (Até 25 pontos)
+    soma = sum(jogo)
+    media_teorica = (total_dezenas_globo + 1) / 2.0
+    soma_esperada = dezenas_por_jogo * media_teorica
+    margem_aceitavel = max(15.0, soma_esperada * 0.25)
+    desvio_soma = abs(soma - soma_esperada)
+
+    if desvio_soma <= margem_aceitavel * 0.5:
+        score += 25.0
+        justificativas.append(f"Soma total ({soma}) no centro da faixa estatística esperada")
+    elif desvio_soma <= margem_aceitavel:
+        score += 18.0
+        justificativas.append(f"Soma total ({soma}) dentro da margem padrão")
+    else:
+        score += 8.0
+        justificativas.append(f"Soma total atípica ({soma})")
+
+    # 3. Repetição do concurso anterior (Até 20 pontos)
+    repetidas = 0
+    if ultimo_sorteio:
+        repetidas = len(jogo_set & set(ultimo_sorteio))
+        repeticao_esperada = (dezenas_por_jogo * len(ultimo_sorteio)) / max(1, total_dezenas_globo)
+        if abs(repetidas - repeticao_esperada) <= 1.5:
+            score += 20.0
+            justificativas.append(f"{repetidas} dezenas repetidas do concurso anterior (dentro da média)")
+        else:
+            score += 12.0
+            justificativas.append(f"{repetidas} repetidas do último concurso")
+    else:
+        score += 16.0
+
+    # 4. Sequências Consecutivas (Até 15 pontos)
+    max_seq = calcular_maior_sequencia_consecutiva(jogo)
+    if max_seq <= 2:
+        score += 15.0
+        justificativas.append(f"Sem blocos consecutivos excessivos (máx. {max_seq} seguidos)")
+    elif max_seq == 3:
+        score += 10.0
+        justificativas.append(f"Sequência máxima moderada de {max_seq} dezenas")
+    else:
+        score += 4.0
+        justificativas.append(f"Sequência longa de {max_seq} dezenas")
+
+    # 5. Primos e Fibonacci (Até 10 pontos)
+    primos = sum(1 for d in jogo if eh_primo(d))
+    fibo = len(jogo_set & FIBONACCI_GERAL)
+    score += 10.0
+    justificativas.append(f"Contém {primos} números primos e {fibo} números de Fibonacci")
+
+    # Quentes e atrasadas
+    if dezenas_quentes:
+        quentes_incluidas = sorted(list(jogo_set & set(dezenas_quentes[:5])))
+        if quentes_incluidas:
+            justificativas.append(f"Incorpora {len(quentes_incluidas)} dezenas quentes: {quentes_incluidas}")
+
+    if dezenas_atrasadas:
+        atrasadas_incluidas = sorted(list(jogo_set & set(dezenas_atrasadas[:5])))
+        if atrasadas_incluidas:
+            justificativas.append(f"Incorpora {len(atrasadas_incluidas)} dezenas atrasadas: {atrasadas_incluidas}")
+
+    metricas = {
+        "moldura": 0,
+        "centro": 0,
+        "pares": pares,
+        "impares": impares,
+        "repetidas_anterior": repetidas,
+        "soma": soma,
+        "primos": primos,
+        "fibonacci": fibo,
+        "maior_sequencia": max_seq
+    }
+
+    return round(min(100.0, score), 1), metricas, justificativas
+
 def gerar_top_jogos_inteligentes(
     total_dezenas_globo: int = 25,
     dezenas_por_jogo: int = 15,
@@ -199,8 +314,10 @@ def gerar_top_jogos_inteligentes(
             continue
         jogos_vistos.add(chave)
         
-        score, metricas, just = avaliar_jogo_lotofacil(
+        score, metricas, just = avaliar_jogo(
             jogo=jogo_completo,
+            total_dezenas_globo=total_dezenas_globo,
+            dezenas_por_jogo=dezenas_por_jogo,
             ultimo_sorteio=ultimo_sorteio,
             dezenas_quentes=dezenas_quentes,
             dezenas_atrasadas=dezenas_atrasadas

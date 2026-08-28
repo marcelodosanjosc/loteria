@@ -10,16 +10,32 @@ O projeto é 100% orquestrado em contêineres Docker, rodando o banco de dados P
 - Docker e Docker Compose instalados no sistema.
 
 ### Inicialização Rápida
-A partir do diretório raiz do projeto, execute o comando abaixo para construir as imagens e iniciar todos os serviços:
 
+#### Ambiente de Desenvolvimento (com detecção dinâmica de portas e Hot-Reload)
+Execute o script inteligente de desenvolvimento a partir da raiz:
+
+```bash
+./start-dev.sh
+```
+
+Ou passando parâmetros adicionais do Docker Compose:
+```bash
+./start-dev.sh --build      # Reconstruir imagens se necessário
+./start-dev.sh down         # Parar os containers de dev
+./start-dev.sh logs         # Acompanhar logs em tempo real
+```
+
+> **Detecção Dinâmica de Portas:** O script verifica automaticamente se as portas padrão (3000, 8000, 5432) estão ocupadas na sua máquina e escolhe as próximas portas livres, configurando o `NEXT_PUBLIC_API_URL` do frontend em tempo de execução para apontar para a porta real do backend.
+
+#### Ambiente Padrão / Produção
 ```bash
 docker compose up --build
 ```
 
 Os serviços ficarão disponíveis em:
-- **Frontend (Next.js)**: `http://localhost:3000` (ou `http://localhost:3001`).
-- **Backend (FastAPI)**: `http://localhost:8001` (documentação Swagger em `http://localhost:8001/docs`).
-- **Banco de Dados (PostgreSQL)**: Disponível na porta `5434` do host.
+- **Frontend (Next.js)**: `http://localhost:3000` (ou porta dinâmica detectada).
+- **Backend (FastAPI)**: `http://localhost:8000` ou `8001` (Swagger em `/docs`).
+- **Banco de Dados (PostgreSQL)**: Porta `5432` ou `5434` do host.
 
 ---
 

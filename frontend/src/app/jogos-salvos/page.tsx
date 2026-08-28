@@ -33,7 +33,7 @@ export default function JogosSalvosPage() {
 
   const exportarParaTxt = (jogo: JogoUsuarioResponse) => {
     const txt = jogo.jogos
-      .map(j => j.map(n => formatarNumeroDezena(n, jogo.modalidade_nome, j.length)).join(' '))
+      .map(j => [...j].sort((a, b) => a - b).map(n => formatarNumeroDezena(n, jogo.modalidade_nome, j.length)).join(' '))
       .join('\n');
     const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -46,7 +46,7 @@ export default function JogosSalvosPage() {
 
   const copiarApostas = (jogo: JogoUsuarioResponse) => {
     const txt = jogo.jogos
-      .map(j => j.map(n => formatarNumeroDezena(n, jogo.modalidade_nome, j.length)).join(' '))
+      .map(j => [...j].sort((a, b) => a - b).map(n => formatarNumeroDezena(n, jogo.modalidade_nome, j.length)).join(' '))
       .join('\n');
     navigator.clipboard.writeText(txt);
     alert(`${jogo.jogos.length} apostas copiadas para a área de transferência!`);

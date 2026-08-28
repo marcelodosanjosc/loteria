@@ -1,0 +1,13 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Instala dependências iniciais para cache de build
+COPY package*.json ./
+RUN npm install
+
+# Expõe a porta interna do frontend
+EXPOSE 3000
+
+# Garante que novas dependências sejam instaladas e inicia o Next.js com hot-reload em todas as interfaces
+CMD ["sh", "-c", "npm install && npx next dev -H 0.0.0.0 -p 3000"]

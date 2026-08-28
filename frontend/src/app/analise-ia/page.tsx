@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   loteriaApi,
   SmartGameItem,
@@ -10,6 +10,7 @@ import {
 import ResponsibleGaming from '../../components/ResponsibleGaming';
 
 export default function AnaliseIAPage() {
+  const [modalidade, setModalidade] = useState<string>("lotofacil");
   const [abaAtiva, setAbaAtiva] = useState<'gerador' | 'prompts' | 'teste_cego'>('gerador');
 
   // Estados do Gerador Inteligente
@@ -25,25 +26,67 @@ export default function AnaliseIAPage() {
   const [iaDestino, setIaDestino] = useState<string>('deepseek');
   const [promptTexto, setPromptTexto] = useState<string>('');
   const [carregandoPrompt, setCarregandoPrompt] = useState<boolean>(false);
-  const [copiado, setCopiado] = useState<boolean>(false);
+  const [copiadoPrompt, setCopiadoPrompt] = useState<boolean>(false);
 
   // Estados do Teste Cego
   const [resultadoTesteCego, setResultadoTesteCego] = useState<TesteCegoResponse | null>(null);
   const [executandoTesteCego, setExecutandoTesteCego] = useState<boolean>(false);
 
-  // Carregar templates de prompts
+  // Configuração por modalidade
+  const modalidadeConfig = useMemo(() => {
+    switch (modalidade) {
+      case 'mega-sena':
+        return { label: 'Mega-Sena', ticketSize: 6, total: 60 };
+      case 'quina':
+        return { label: 'Quina', ticketSize: 5, total: 80 };
+      case 'lotomania':
+        return { label: 'Lotomania', ticketSize: 50, total: 100 };
+      case 'dupla-sena':
+        return { label: 'Dupla-Sena', ticketSize: 6, total: 50 };
+      case 'lotofacil':
+      default:
+        return { label: 'Lotofácil', ticketSize: 15, total: 25 };
+    }
+  }, [modalidade]);
+
+  // Formatação de dezena padronizada
+  const formatarNumeroDezena = (n: number, mod: string) => {
+    if (mod === 'lotomania' && n === 100) return '00';
+    return String(n).padStart(2, '0');
+  };
+
+  // Construtor de texto limpo (apenas dezenas separadas por espaço, uma aposta por linha)
+  const formatarJogosTextoLimpo = (jogos: SmartGameItem[], mod: string) => {
+    return jogos
+      .map((item) => {
+        const ordenadas = [...item.jogo].sort((a, b) => a - b);
+        return ordenadas.map((d) => formatarNumeroDezena(d, mod)).join(' ');
+      })
+      .join('\n');
+  };
+
+  // Carregar templates de prompts ao montar
   useEffect(() => {
     loteriaApi.getPromptTemplates().then((res) => {
       setTemplates(res);
     }).catch(console.error);
   }, []);
 
+  // Reseta estados transitórios ao trocar modalidade
+  const handleTrocarModalidade = (novaModalidade: string) => {
+    setModalidade(novaModalidade);
+    setJogosGerados([]);
+    setResultadoTesteCego(null);
+    setPromptTexto('');
+    setMensagemSucesso(null);
+  };
+
   // Gerar jogos inteligentes
   const handleGerarJogosIA = async () => {
     setGerandoJogos(true);
     setMensagemSucesso(null);
     try {
-      const res = await loteriaApi.gerarJogosIA('lotofacil', {
+      const res = await loteriaApi.gerarJogosIA(modalidade, {
         quantidade_jogos: qtdJogos,
         amostragem_concursos: amostragem,
       });
@@ -56,12 +99,50 @@ export default function AnaliseIAPage() {
     }
   };
 
+  // Exportar jogos gerados para TXT (Formato Limpo)
+  const handleExportarTxt = () => {
+    if (!jogosGerados.length) return;
+    const txt = formatarJogosTextoLimpo(jogosGerados, modalidade);
+    const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `lottomath_jogos_ia_${modalidade}_${Date.now()}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+
+    setMensagemSucesso(`Arquivo TXT exportado com sucesso (${jogosGerados.length} apostas no formato limpo)!`);
+    setTimeout(() => setMensagemSucesso(null), 3500);
+  };
+
+  // Copiar apostas formatadas para o Clipboard
+  const handleCopiarApostas = () => {
+    if (!jogosGerados.length) return;
+    const txt = formatarJogosTextoLimpo(jogosGerados, modalidade);
+    navigator.clipboard.writeText(txt);
+    setMensagemSucesso(`✓ ${jogosGerados.length} apostas copiadas para a área de transferência em formato limpo!`);
+    setTimeout(() => setMensagemSucesso(null), 3500);
+  };
+
+  // Salvar jogos na conta do usuário
+  const handleSalvarJogos = async () => {
+    if (!jogosGerados.length) return;
+    try {
+      const matriz = jogosGerados.map((item) => item.jogo);
+      await loteriaApi.salvarJogo(modalidade, 'ia_smart', matriz);
+      setMensagemSucesso("Jogos salvos com sucesso na sua conta!");
+      setTimeout(() => setMensagemSucesso(null), 3000);
+    } catch (err) {
+      alert("Para salvar os jogos, você precisa estar autenticado.");
+    }
+  };
+
   // Gerar prompt formatado
   const handleGerarPrompt = async () => {
     setCarregandoPrompt(true);
-    setCopiado(false);
+    setCopiadoPrompt(false);
     try {
-      const res = await loteriaApi.exportarPromptIA('lotofacil', {
+      const res = await loteriaApi.exportarPromptIA(modalidade, {
         template_id: templateSelecionado,
         ia_destino: iaDestino,
         amostragem_concursos: amostragem,
@@ -78,8 +159,8 @@ export default function AnaliseIAPage() {
   // Copiar prompt para clipboard
   const handleCopiarPrompt = () => {
     navigator.clipboard.writeText(promptTexto);
-    setCopiado(true);
-    setTimeout(() => setCopiado(false), 2500);
+    setCopiadoPrompt(true);
+    setTimeout(() => setCopiadoPrompt(false), 2500);
   };
 
   // Executar teste cego
@@ -87,7 +168,7 @@ export default function AnaliseIAPage() {
     setExecutandoTesteCego(true);
     try {
       const customJogos = jogosGerados.length > 0 ? jogosGerados.map((j) => j.jogo) : undefined;
-      const res = await loteriaApi.executarTesteCego('lotofacil', {
+      const res = await loteriaApi.executarTesteCego(modalidade, {
         amostragem_treino: amostragem,
         jogos_gerados: customJogos,
       });
@@ -100,103 +181,108 @@ export default function AnaliseIAPage() {
     }
   };
 
-  // Exportar jogos gerados para TXT
-  const handleExportarTxt = () => {
-    if (!jogosGerados.length) return;
-    const conteudo = jogosGerados
-      .map((item, idx) => {
-        const nums = item.jogo.map((d) => String(d).padStart(2, '0')).join(' ');
-        return `Jogo ${idx + 1} (Score: ${item.score}%): ${nums}`;
-      })
-      .join('\n');
-
-    const blob = new Blob([conteudo], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `lottomath_jogos_ia_lotofacil_${Date.now()}.txt`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  // Salvar jogos na conta do usuário
-  const handleSalvarJogos = async () => {
-    if (!jogosGerados.length) return;
-    try {
-      const matriz = jogosGerados.map((item) => item.jogo);
-      await loteriaApi.salvarJogo('lotofacil', 'ia_smart', matriz);
-      setMensagemSucesso("Jogos salvos com sucesso na sua conta!");
-      setTimeout(() => setMensagemSucesso(null), 3000);
-    } catch (err) {
-      alert("Para salvar os jogos, você precisa estar autenticado.");
-    }
-  };
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
       <ResponsibleGaming />
 
-      {/* Header Principal */}
+      {/* Header Principal com Seletor de Modalidade */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h2 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '8px' }}>
-            🤖 Motor de Inteligência Artificial & Estatística
-          </h2>
-          <p style={{ color: '#94a3b8' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <h2 style={{ fontSize: '28px', fontWeight: 800, margin: 0 }}>
+              🤖 Motor de Inteligência Artificial & Estatística
+            </h2>
+            <span style={{ 
+              fontSize: '12px', 
+              padding: '4px 10px', 
+              borderRadius: '20px', 
+              backgroundColor: 'rgba(99, 102, 241, 0.15)', 
+              color: '#818cf8', 
+              border: '1px solid rgba(99, 102, 241, 0.3)',
+              fontWeight: 700
+            }}>
+              {modalidadeConfig.label}
+            </span>
+          </div>
+          <p style={{ color: '#94a3b8', marginTop: '6px' }}>
             Geração de Jogos Fortes com Score de Equilíbrio, Prompts Especializados (DeepSeek / ChatGPT / Gemini) e Simulador de Teste Cego.
           </p>
         </div>
 
-        {/* Abas de Navegação */}
-        <div style={{ display: 'flex', gap: '8px', backgroundColor: '#1e293b', padding: '6px', borderRadius: '10px' }}>
-          <button
-            onClick={() => setAbaAtiva('gerador')}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '8px',
-              border: 'none',
-              fontSize: '13px',
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Seletor de Modalidade */}
+          <select 
+            value={modalidade} 
+            onChange={(e) => handleTrocarModalidade(e.target.value)}
+            style={{ 
+              padding: '10px 18px', 
+              borderRadius: '10px', 
+              backgroundColor: '#1e293b', 
+              border: '1px solid #334155', 
+              color: 'white', 
+              fontSize: '14px', 
               fontWeight: 600,
-              cursor: 'pointer',
-              backgroundColor: abaAtiva === 'gerador' ? '#6366f1' : 'transparent',
-              color: 'white',
-              transition: 'all 0.2s',
+              cursor: 'pointer'
             }}
           >
-            ⭐ Top 5 Jogos Fortes
-          </button>
-          <button
-            onClick={() => setAbaAtiva('prompts')}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '8px',
-              border: 'none',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              backgroundColor: abaAtiva === 'prompts' ? '#10b981' : 'transparent',
-              color: abaAtiva === 'prompts' ? '#0f172a' : 'white',
-              transition: 'all 0.2s',
-            }}
-          >
-            📋 Copiador de Prompts IA
-          </button>
-          <button
-            onClick={() => setAbaAtiva('teste_cego')}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '8px',
-              border: 'none',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              backgroundColor: abaAtiva === 'teste_cego' ? '#f59e0b' : 'transparent',
-              color: abaAtiva === 'teste_cego' ? '#0f172a' : 'white',
-              transition: 'all 0.2s',
-            }}
-          >
-            🎯 Teste Cego (Backtesting)
-          </button>
+            <option value="mega-sena">Mega-Sena</option>
+            <option value="lotofacil">Lotofácil</option>
+            <option value="quina">Quina</option>
+            <option value="lotomania">Lotomania</option>
+            <option value="dupla-sena">Dupla-Sena</option>
+          </select>
+
+          {/* Abas de Navegação */}
+          <div style={{ display: 'flex', gap: '6px', backgroundColor: '#1e293b', padding: '6px', borderRadius: '10px' }}>
+            <button
+              onClick={() => setAbaAtiva('gerador')}
+              style={{
+                padding: '8px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                backgroundColor: abaAtiva === 'gerador' ? '#6366f1' : 'transparent',
+                color: 'white',
+                transition: 'all 0.2s',
+              }}
+            >
+              ⭐ Top Jogos Otimizados
+            </button>
+            <button
+              onClick={() => setAbaAtiva('prompts')}
+              style={{
+                padding: '8px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                backgroundColor: abaAtiva === 'prompts' ? '#10b981' : 'transparent',
+                color: abaAtiva === 'prompts' ? '#0f172a' : 'white',
+                transition: 'all 0.2s',
+              }}
+            >
+              📋 Copiador de Prompts IA
+            </button>
+            <button
+              onClick={() => setAbaAtiva('teste_cego')}
+              style={{
+                padding: '8px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                backgroundColor: abaAtiva === 'teste_cego' ? '#f59e0b' : 'transparent',
+                color: abaAtiva === 'teste_cego' ? '#0f172a' : 'white',
+                transition: 'all 0.2s',
+              }}
+            >
+              🎯 Teste Cego (Backtesting)
+            </button>
+          </div>
         </div>
       </div>
 
@@ -206,7 +292,7 @@ export default function AnaliseIAPage() {
           {/* Painel de Configuração */}
           <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#6366f1' }}>
-              ⚡ Parâmetros de Otimização Multicritério
+              ⚡ Parâmetros de Otimização Multicritério ({modalidadeConfig.label})
             </h3>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
@@ -272,15 +358,22 @@ export default function AnaliseIAPage() {
                   cursor: gerandoJogos ? 'not-allowed' : 'pointer',
                 }}
               >
-                {gerandoJogos ? 'Sintetizando e Ranqueando Jogos...' : '🚀 Gerar Top Jogos Otimizados'}
+                {gerandoJogos ? `Sintetizando Jogos de ${modalidadeConfig.label}...` : `🚀 Gerar Top Jogos (${modalidadeConfig.label})`}
               </button>
 
               {jogosGerados.length > 0 && (
                 <>
                   <button
-                    onClick={handleExportarTxt}
+                    onClick={handleCopiarApostas}
                     className="btn btn-secondary"
                     style={{ padding: '12px 20px', fontSize: '14px' }}
+                  >
+                    📋 Copiar Apostas
+                  </button>
+                  <button
+                    onClick={handleExportarTxt}
+                    className="btn btn-secondary"
+                    style={{ padding: '12px 20px', fontSize: '14px', backgroundColor: '#10b981', borderColor: '#10b981', color: 'white' }}
                   >
                     📄 Baixar .TXT
                   </button>
@@ -296,8 +389,8 @@ export default function AnaliseIAPage() {
             </div>
 
             {mensagemSucesso && (
-              <div style={{ padding: '10px 16px', borderRadius: '8px', backgroundColor: 'rgba(16,185,129,0.2)', color: '#34d399', fontSize: '13px' }}>
-                ✓ {mensagemSucesso}
+              <div style={{ padding: '10px 16px', borderRadius: '8px', backgroundColor: 'rgba(16,185,129,0.2)', color: '#34d399', fontSize: '13px', fontWeight: 600 }}>
+                {mensagemSucesso}
               </div>
             )}
           </div>
@@ -306,7 +399,7 @@ export default function AnaliseIAPage() {
           {jogosGerados.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <h3 style={{ fontSize: '20px', fontWeight: 700 }}>
-                🏆 Combinações Selecionadas com Maior Score de Equilíbrio
+                🏆 Combinações Selecionadas com Maior Score ({modalidadeConfig.label})
               </h3>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -335,43 +428,50 @@ export default function AnaliseIAPage() {
                             color: item.score >= 90 ? '#34d399' : '#38bdf8',
                           }}
                         >
-                          Score Estatístico: {item.score}%
+                          Score: {item.score}%
                         </span>
                       </div>
 
                       {/* Métricas Rápidas */}
-                      <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: '#94a3b8' }}>
-                        <span>Moldura: <strong>{item.metricas.moldura}/15</strong></span>
+                      <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: '#94a3b8', flexWrap: 'wrap' }}>
+                        {item.metricas.moldura > 0 && (
+                          <span>Moldura: <strong>{item.metricas.moldura}</strong></span>
+                        )}
                         <span>Pares: <strong>{item.metricas.pares}P/{item.metricas.impares}I</strong></span>
                         <span>Soma: <strong>{item.metricas.soma}</strong></span>
                         <span>Repetidas: <strong>{item.metricas.repetidas_anterior}</strong></span>
+                        {item.metricas.primos !== undefined && (
+                          <span>Primos: <strong>{item.metricas.primos}</strong></span>
+                        )}
                       </div>
                     </div>
 
                     {/* Bolas Sorteadas */}
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                      {item.jogo.map((d) => (
+                      {[...item.jogo].sort((a, b) => a - b).map((d) => (
                         <span
                           key={d}
                           className="lottery-ball active"
                           style={{ width: '38px', height: '38px', fontSize: '14px' }}
                         >
-                          {String(d).padStart(2, '0')}
+                          {formatarNumeroDezena(d, modalidade)}
                         </span>
                       ))}
                     </div>
 
                     {/* Justificativa Analítica */}
-                    <div style={{ backgroundColor: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#cbd5e1', marginBottom: '6px' }}>
-                        🧠 Por que esta combinação é forte?
+                    {item.justificativa && item.justificativa.length > 0 && (
+                      <div style={{ backgroundColor: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#cbd5e1', marginBottom: '6px' }}>
+                          🧠 Por que esta combinação é estatisticamente forte?
+                        </div>
+                        <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', color: '#94a3b8', lineHeight: 1.6 }}>
+                          {item.justificativa.map((just, jIdx) => (
+                            <li key={jIdx}>{just}</li>
+                          ))}
+                        </ul>
                       </div>
-                      <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', color: '#94a3b8', lineHeight: 1.6 }}>
-                        {item.justificativa.map((just, jIdx) => (
-                          <li key={jIdx}>{just}</li>
-                        ))}
-                      </ul>
-                    </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -385,10 +485,10 @@ export default function AnaliseIAPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#10b981' }}>
-              📋 Construtor de Prompts Estruturados com Dados Reais
+              📋 Construtor de Prompts Estruturados ({modalidadeConfig.label})
             </h3>
             <p style={{ fontSize: '13px', color: '#94a3b8' }}>
-              Selecione o modelo analítico e a IA de destino (DeepSeek, ChatGPT ou Gemini). O sistema injeta automaticamente a tabela dos concursos recentes no prompt para você colar e rodar!
+              Selecione o modelo analítico e a IA de destino (DeepSeek, ChatGPT ou Gemini). O sistema injeta automaticamente a tabela dos concursos recentes da {modalidadeConfig.label} no prompt para você colar e rodar!
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
@@ -478,13 +578,13 @@ export default function AnaliseIAPage() {
               </button>
 
               <a
-                href={loteriaApi.getExportarCsvUrl('lotofacil', amostragem)}
+                href={loteriaApi.getExportarCsvUrl(modalidade, amostragem)}
                 target="_blank"
                 rel="noreferrer"
                 className="btn btn-secondary"
                 style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               >
-                📥 Baixar CSV de Dados para Anexar
+                📥 Baixar CSV de Dados ({modalidadeConfig.label})
               </a>
             </div>
           </div>
@@ -498,12 +598,12 @@ export default function AnaliseIAPage() {
                   onClick={handleCopiarPrompt}
                   className="btn btn-primary"
                   style={{
-                    backgroundColor: copiado ? '#10b981' : '#6366f1',
+                    backgroundColor: copiadoPrompt ? '#10b981' : '#6366f1',
                     fontSize: '13px',
                     padding: '6px 16px',
                   }}
                 >
-                  {copiado ? '✓ Copiado com Sucesso!' : '📋 Copiar Prompt'}
+                  {copiadoPrompt ? '✓ Copiado com Sucesso!' : '📋 Copiar Prompt'}
                 </button>
               </div>
 
@@ -534,10 +634,10 @@ export default function AnaliseIAPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#f59e0b' }}>
-              🎯 Auditoria por Teste Cego (Backtesting)
+              🎯 Auditoria por Teste Cego ({modalidadeConfig.label})
             </h3>
             <p style={{ fontSize: '13px', color: '#94a3b8' }}>
-              O teste cego remove o concurso mais recente da base de análise e utiliza os {amostragem} concursos anteriores para gerar os jogos. Em seguida, confere automaticamente quantos pontos os cartões teriam alcançado no resultado oficial!
+              O teste cego remove o concurso mais recente da base de análise da {modalidadeConfig.label} e utiliza os {amostragem} concursos anteriores para gerar os jogos. Em seguida, confere automaticamente quantos pontos os cartões teriam alcançado no resultado oficial!
             </p>
 
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -552,7 +652,7 @@ export default function AnaliseIAPage() {
                   padding: '12px 24px',
                 }}
               >
-                {executandoTesteCego ? 'Auditando...' : '▶️ Executar Teste Cego Agora'}
+                {executandoTesteCego ? 'Auditando...' : `▶️ Executar Teste Cego (${modalidadeConfig.label})`}
               </button>
             </div>
           </div>
@@ -572,9 +672,9 @@ export default function AnaliseIAPage() {
                 </div>
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {resultadoTesteCego.dezenas_sorteadas.map((d) => (
+                  {[...resultadoTesteCego.dezenas_sorteadas].sort((a, b) => a - b).map((d) => (
                     <span key={d} className="lottery-ball drawn" style={{ width: '36px', height: '36px', fontSize: '13px' }}>
-                      {String(d).padStart(2, '0')}
+                      {formatarNumeroDezena(d, modalidade)}
                     </span>
                   ))}
                 </div>
@@ -611,7 +711,7 @@ export default function AnaliseIAPage() {
 
                       {/* Dezenas com Destaque de Acerto */}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {item.jogo.map((d) => {
+                        {[...item.jogo].sort((a, b) => a - b).map((d) => {
                           const acertou = item.dezenas_acertadas.includes(d);
                           return (
                             <span
@@ -630,7 +730,7 @@ export default function AnaliseIAPage() {
                                 border: acertou ? 'none' : '1px solid rgba(255,255,255,0.1)',
                               }}
                             >
-                              {String(d).padStart(2, '0')}
+                              {formatarNumeroDezena(d, modalidade)}
                             </span>
                           );
                         })}
@@ -639,7 +739,7 @@ export default function AnaliseIAPage() {
 
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: '28px', fontWeight: 900, color: item.premiado ? '#10b981' : '#cbd5e1' }}>
-                        {item.acertos} <span style={{ fontSize: '14px', color: '#64748b' }}>/ 15</span>
+                        {item.acertos} <span style={{ fontSize: '14px', color: '#64748b' }}>/ {modalidadeConfig.ticketSize}</span>
                       </div>
                     </div>
                   </div>

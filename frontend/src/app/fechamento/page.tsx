@@ -249,7 +249,7 @@ export default function FechamentoPage() {
   const exportarTxtLimpo = () => {
     if (jogosGerados.length === 0) return;
     const txt = jogosGerados
-      .map(jogo => jogo.map(n => config.formatNumber(n)).join(' '))
+      .map(jogo => [...jogo].sort((a, b) => a - b).map(n => config.formatNumber(n)).join(' '))
       .join('\n');
     
     const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
@@ -271,7 +271,7 @@ export default function FechamentoPage() {
   const copiarApostasFormatadas = () => {
     if (jogosGerados.length === 0) return;
     const txt = jogosGerados
-      .map(jogo => jogo.map(n => config.formatNumber(n)).join(' '))
+      .map(jogo => [...jogo].sort((a, b) => a - b).map(n => config.formatNumber(n)).join(' '))
       .join('\n');
 
     navigator.clipboard.writeText(txt);
@@ -284,7 +284,7 @@ export default function FechamentoPage() {
 
   // Copiar apenas 1 jogo específico
   const copiarUnicoJogo = (jogo: number[], index: number) => {
-    const txt = jogo.map(n => config.formatNumber(n)).join(' ');
+    const txt = [...jogo].sort((a, b) => a - b).map(n => config.formatNumber(n)).join(' ');
     navigator.clipboard.writeText(txt);
     showToast(
       "Jogo Copiado!",
