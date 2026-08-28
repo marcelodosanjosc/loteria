@@ -1,17 +1,20 @@
-version: '3.8'
-
 services:
   db:
-    image: postgres:latest
+    image: postgres:16
     container_name: loteria_db_compose
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: loteria_db
     ports:
-      - "5433:5432"
+      - "5434:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d loteria_db"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
     networks:
       - loteria-network
 
@@ -21,7 +24,7 @@ services:
       dockerfile: Dockerfile
     container_name: loteria_backend_compose
     ports:
-      - "8000:8000"
+      - "8001:8000"
     environment:
       - POSTGRES_SERVER=db
       - POSTGRES_PORT=5432
@@ -30,7 +33,8 @@ services:
       - POSTGRES_DB=loteria_db
       - SECRET_KEY=super-secret-key-change-in-production
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     networks:
       - loteria-network
 
@@ -42,7 +46,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+      - NEXT_PUBLIC_API_URL=http://localhost:8001/api/v1
     depends_on:
       - backend
     networks:

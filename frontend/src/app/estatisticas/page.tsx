@@ -1,19 +1,22 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { loteriaApi, EstatisticasResponse } from '../../services/api';
+import { loteriaApi, EstatisticaAvancadaResponse } from '../../services/api';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import SpatialVolante from '../../components/SpatialVolante';
+import Link from 'next/link';
 
 export default function EstatisticasPage() {
-  const [modalidade, setModalidade] = useState<string>("mega-sena");
-  const [stats, setStats] = useState<EstatisticasResponse | null>(null);
+  const [modalidade, setModalidade] = useState<string>("lotofacil");
+  const [limiteAmostragem, setLimiteAmostragem] = useState<number>(30);
+  const [stats, setStats] = useState<EstatisticaAvancadaResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     const fetchStats = async () => {
       setLoading(true);
       try {
-        const res = await loteriaApi.getEstatisticas(modalidade);
+        const res = await loteriaApi.getEstatisticasAvancadas(modalidade, limiteAmostragem);
         setStats(res);
       } catch (err) {
         console.error("Erro ao carregar estatísticas do backend:", err);
@@ -23,7 +26,7 @@ export default function EstatisticasPage() {
       }
     };
     fetchStats();
-  }, [modalidade]);
+  }, [modalidade, limiteAmostragem]);
 
   // Processa as 10 dezenas mais frequentes
   const maisFrequentes = useMemo(() => {
@@ -54,47 +57,140 @@ export default function EstatisticasPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+      {/* Header com Filtros */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h2 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '8px' }}>Análise Estatística Avançada</h2>
-          <p style={{ color: '#94a3b8' }}>Estude as dezenas quentes, frias e as tendências de somas acumuladas no banco de dados.</p>
+          <h2 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '8px' }}>📊 Painel Estatístico & Espacial</h2>
+          <p style={{ color: '#94a3b8' }}>
+            Análise aprofundada de distribuição espacial no volante, moldura/centro, repetições e recortes temporais.
+          </p>
         </div>
-        
-        {/* Seletor de Modalidade */}
-        <select 
-          value={modalidade} 
-          onChange={(e) => setModalidade(e.target.value)}
-          style={{ 
-            padding: '10px 20px', 
-            borderRadius: '8px', 
-            backgroundColor: '#1e293b', 
-            border: '1px solid #334155', 
-            color: 'white', 
-            fontSize: '14px', 
-            fontWeight: 600,
-            cursor: 'pointer'
-          }}
-        >
-          <option value="mega-sena">Mega-Sena</option>
-          <option value="lotofacil">Lotofácil</option>
-          <option value="quina">Quina</option>
-          <option value="lotomania">Lotomania</option>
-          <option value="dupla-sena">Dupla-Sena</option>
-        </select>
+
+        {/* Filtros e Ações */}
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Seletor de Janela Temporal */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '13px', color: '#94a3b8' }}>Amostra:</span>
+            <select
+              value={limiteAmostragem}
+              onChange={(e) => setLimiteAmostragem(Number(e.target.value))}
+              style={{
+                padding: '8px 14px',
+                borderRadius: '8px',
+                backgroundColor: '#1e293b',
+                border: '1px solid #334155',
+                color: 'white',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              <option value={30}>Últimos 30 Concursos (Momento)</option>
+              <option value={50}>Últimos 50 Concursos</option>
+              <option value={100}>Últimos 100 Concursos</option>
+              <option value={500}>Últimos 500 Concursos</option>
+            </select>
+          </div>
+
+          {/* Seletor de Modalidade */}
+          <select
+            value={modalidade}
+            onChange={(e) => setModalidade(e.target.value)}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '8px',
+              backgroundColor: '#1e293b',
+              border: '1px solid #334155',
+              color: 'white',
+              fontSize: '13px',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            <option value="lotofacil">Lotofácil</option>
+            <option value="mega-sena">Mega-Sena</option>
+            <option value="quina">Quina</option>
+            <option value="lotomania">Lotomania</option>
+            <option value="dupla-sena">Dupla-Sena</option>
+          </select>
+
+          {/* Botão para Gerador IA */}
+          <Link
+            href="/analise-ia"
+            className="btn btn-primary"
+            style={{
+              backgroundColor: '#6366f1',
+              padding: '8px 16px',
+              fontSize: '13px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              textDecoration: 'none'
+            }}
+          >
+            🤖 IA & Prompts
+          </Link>
+        </div>
       </div>
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '60px 0', color: '#64748b' }}>
-          Processando histórico de resultados...
+          Processando estatísticas dos últimos {limiteAmostragem} concursos...
         </div>
       ) : stats ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
           
+          {/* Destaques Rápidos de Métricas */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+            <div className="glass-panel" style={{ padding: '16px' }}>
+              <div style={{ fontSize: '12px', color: '#94a3b8' }}>Média na Moldura</div>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: '#38bdf8', marginTop: '4px' }}>
+                {stats.moldura_centro.moldura_media} <span style={{ fontSize: '13px', color: '#64748b' }}>/ 15</span>
+              </div>
+              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>Centro: {stats.moldura_centro.centro_medio} dezenas</div>
+            </div>
+
+            <div className="glass-panel" style={{ padding: '16px' }}>
+              <div style={{ fontSize: '12px', color: '#94a3b8' }}>Repetição Anterior</div>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: '#10b981', marginTop: '4px' }}>
+                {stats.repeticao_concurso_anterior.media_repetidas} <span style={{ fontSize: '13px', color: '#64748b' }}>dezenas</span>
+              </div>
+              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>Padrão mais frequente: 9 repetidas</div>
+            </div>
+
+            <div className="glass-panel" style={{ padding: '16px' }}>
+              <div style={{ fontSize: '12px', color: '#94a3b8' }}>Soma Média</div>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: '#f59e0b', marginTop: '4px' }}>
+                {stats.soma_media}
+              </div>
+              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>Faixa ideal: 180 a 220</div>
+            </div>
+
+            <div className="glass-panel" style={{ padding: '16px' }}>
+              <div style={{ fontSize: '12px', color: '#94a3b8' }}>Sequência Média</div>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: '#ec4899', marginTop: '4px' }}>
+                {stats.sequencias_consecutivas.maior_sequencia_media} <span style={{ fontSize: '13px', color: '#64748b' }}>contíguas</span>
+              </div>
+              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>Máx. contínuo por sorteio</div>
+            </div>
+          </div>
+
+          {/* Volante Espacial Interativo (para Lotofácil) */}
+          {modalidade === 'lotofacil' && (
+            <SpatialVolante
+              frequencia={stats.frequencia}
+              atraso={stats.atraso}
+              dezenasQuentes={stats.dezenas_quentes}
+              dezenasAtrasadas={stats.dezenas_atrasadas}
+              totalConcursos={stats.total_concursos_analisados}
+            />
+          )}
+
           {/* Frequência vs Atraso */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
             {/* Dezenas Quentes */}
             <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#10b981' }}>🔥 Dezenas Mais Sorteadas (Quentes)</h3>
+              <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#10b981' }}>🔥 Dezenas Mais Sorteadas (Quentes no Ciclo)</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {maisFrequentes.map((item) => (
                   <div key={item.numero} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '14px' }}>
@@ -139,11 +235,11 @@ export default function EstatisticasPage() {
             </div>
           </div>
 
-          {/* Gráfico de Somas e Paridade */}
+          {/* Gráfico de Somas e Balanço Par/Ímpar e Baixas/Altas */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
             {/* Gráfico de Linha de Somas */}
             <div className="glass-panel" style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: 700 }}>📈 Distribuição e Soma das Dezenas (Últimos 50 Concursos)</h3>
+              <h3 style={{ fontSize: '18px', fontWeight: 700 }}>📈 Distribuição e Soma das Dezenas (Últimos {Math.min(50, stats.total_concursos_analisados)} Concursos)</h3>
               <div style={{ width: '100%', height: '220px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={dadosGraficoSoma}>
@@ -160,30 +256,55 @@ export default function EstatisticasPage() {
               </div>
             </div>
 
-            {/* Paridade Card */}
+            {/* Paridade & Altas/Baixas Card */}
             <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '20px', justifyContent: 'center' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: 700 }}>⚖️ Balanço Par / Ímpar</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 700 }}>⚖️ Balanço Paridade & Quadrantes</h3>
+              
+              {/* Par / Ímpar */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', marginBottom: '6px' }}>
-                    <span style={{ color: '#38bdf8' }}>Dezenas Pares</span>
-                    <strong style={{ color: '#38bdf8' }}>{stats.pares_impares.pares}%</strong>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px' }}>
+                    <span style={{ color: '#38bdf8' }}>Pares ({stats.pares_impares.pares}%)</span>
+                    <span style={{ color: '#fb7185' }}>Ímpares ({stats.pares_impares.impares}%)</span>
                   </div>
-                  <div style={{ height: '12px', backgroundColor: '#1e293b', borderRadius: '6px', overflow: 'hidden' }}>
-                    <div style={{ width: `${stats.pares_impares.pares}%`, height: '100%', backgroundColor: '#38bdf8' }}></div>
+                  <div style={{ height: '10px', backgroundColor: '#1e293b', borderRadius: '5px', overflow: 'hidden', display: 'flex' }}>
+                    <div style={{ width: `${stats.pares_impares.pares}%`, backgroundColor: '#38bdf8' }}></div>
+                    <div style={{ width: `${stats.pares_impares.impares}%`, backgroundColor: '#fb7185' }}></div>
                   </div>
                 </div>
 
+                {/* Baixas / Altas */}
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', marginBottom: '6px' }}>
-                    <span style={{ color: '#fb7185' }}>Dezenas Ímpares</span>
-                    <strong style={{ color: '#fb7185' }}>{stats.pares_impares.impares}%</strong>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px' }}>
+                    <span style={{ color: '#10b981' }}>Baixas 01-12 ({stats.altas_baixas.baixas_pct}%)</span>
+                    <span style={{ color: '#a855f7' }}>Altas 13-25 ({stats.altas_baixas.altas_pct}%)</span>
                   </div>
-                  <div style={{ height: '12px', backgroundColor: '#1e293b', borderRadius: '6px', overflow: 'hidden' }}>
-                    <div style={{ width: `${stats.pares_impares.impares}%`, height: '100%', backgroundColor: '#fb7185' }}></div>
+                  <div style={{ height: '10px', backgroundColor: '#1e293b', borderRadius: '5px', overflow: 'hidden', display: 'flex' }}>
+                    <div style={{ width: `${stats.altas_baixas.baixas_pct}%`, backgroundColor: '#10b981' }}></div>
+                    <div style={{ width: `${stats.altas_baixas.altas_pct}%`, backgroundColor: '#a855f7' }}></div>
                   </div>
                 </div>
               </div>
+
+              {/* Botão Download CSV */}
+              <a
+                href={loteriaApi.getExportarCsvUrl(modalidade, limiteAmostragem)}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-secondary"
+                style={{
+                  textAlign: 'center',
+                  fontSize: '13px',
+                  padding: '8px 12px',
+                  backgroundColor: '#1e293b',
+                  border: '1px solid #334155',
+                  color: 'white',
+                  textDecoration: 'none',
+                  borderRadius: '6px'
+                }}
+              >
+                📥 Baixar Amostra em CSV (Excel / IA)
+              </a>
             </div>
           </div>
 
@@ -196,3 +317,4 @@ export default function EstatisticasPage() {
     </div>
   );
 }
+

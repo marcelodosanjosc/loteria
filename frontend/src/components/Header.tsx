@@ -48,6 +48,7 @@ export default function Header() {
           <a href="/fechamento" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', fontWeight: 500 }}>Fechamentos</a>
           <a href="/filtros" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', fontWeight: 500 }}>Filtros</a>
           <a href="/estatisticas" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', fontWeight: 500 }}>Estatísticas</a>
+          <a href="/analise-ia" style={{ color: '#818cf8', textDecoration: 'none', fontSize: '14px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>🤖 IA & Prompts</a>
           {email && (
             <a href="/jogos-salvos" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', fontWeight: 500 }}>Meus Jogos</a>
           )}

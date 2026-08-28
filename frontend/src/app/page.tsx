@@ -110,6 +110,14 @@ export default function Dashboard() {
             </p>
             <a href="/filtros" className="btn btn-primary" style={{ marginTop: '12px', backgroundColor: '#f59e0b' }}>Filtrar Jogos</a>
           </div>
+
+          <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <h4 style={{ fontSize: '18px', fontWeight: 700, color: '#818cf8' }}>🤖 Inteligência Artificial & Prompts</h4>
+            <p style={{ fontSize: '14px', color: '#94a3b8', flexGrow: 1 }}>
+              Gere os Top 5 Jogos Fortes com score de equilíbrio estatístico, copie prompts prontos para DeepSeek/ChatGPT com dados reais e faça backtesting com teste cego.
+            </p>
+            <a href="/analise-ia" className="btn btn-primary" style={{ marginTop: '12px', backgroundColor: '#6366f1' }}>Explorar com IA</a>
+          </div>
         </div>
       </div>
     </div>

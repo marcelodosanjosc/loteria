@@ -32,13 +32,24 @@ export default function JogosSalvosPage() {
   }, []);
 
   const exportarParaTxt = (jogo: JogoUsuarioResponse) => {
-    const txt = jogo.jogos.map(j => j.join(',')).join('\n');
-    const blob = new Blob([txt], { type: 'text/plain' });
+    const txt = jogo.jogos
+      .map(j => j.map(n => formatarNumeroDezena(n, jogo.modalidade_nome, j.length)).join(' '))
+      .join('\n');
+    const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `jogos-${jogo.tipo_geracao}-${jogo.id.slice(0, 8)}.txt`;
     a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const copiarApostas = (jogo: JogoUsuarioResponse) => {
+    const txt = jogo.jogos
+      .map(j => j.map(n => formatarNumeroDezena(n, jogo.modalidade_nome, j.length)).join(' '))
+      .join('\n');
+    navigator.clipboard.writeText(txt);
+    alert(`${jogo.jogos.length} apostas copiadas para a área de transferência!`);
   };
 
   const formatarData = (dateStr: string) => {
@@ -130,13 +141,22 @@ export default function JogosSalvosPage() {
                   </span>
                 </div>
 
-                <button 
-                  className="btn btn-secondary" 
-                  onClick={() => exportarParaTxt(jogo)}
-                  style={{ padding: '8px 16px', fontSize: '13px' }}
-                >
-                  Exportar TXT
-                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button 
+                    className="btn btn-secondary" 
+                    onClick={() => copiarApostas(jogo)}
+                    style={{ padding: '8px 14px', fontSize: '13px' }}
+                  >
+                    📋 Copiar
+                  </button>
+                  <button 
+                    className="btn btn-secondary" 
+                    onClick={() => exportarParaTxt(jogo)}
+                    style={{ padding: '8px 14px', fontSize: '13px', backgroundColor: '#10b981', borderColor: '#10b981', color: 'white' }}
+                  >
+                    📄 Exportar TXT
+                  </button>
+                </div>
               </div>
 
               {/* Pré-visualização simplificada das dezenas (primeiros 3 jogos) */}

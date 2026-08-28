@@ -26,3 +26,12 @@ backend/venv/
 backend/__pycache__/
 frontend/.next/
 frontend/node_modules/
+frontend/tsconfig.tsbuildinfo
+
+# AI Agent & MCP Directories
+.agent/
+.gemini/
+.claude/
+.opencode/
+.playwright-mcp/
+
