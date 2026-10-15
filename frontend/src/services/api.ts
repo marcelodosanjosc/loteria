@@ -90,15 +90,19 @@ export interface SmartGameItem {
   jogo: number[];
   score: number;
   metricas: {
-    moldura: number;
-    centro: number;
-    pares: number;
-    impares: number;
-    repetidas_anterior: number;
-    soma: number;
-    primos: number;
-    fibonacci: number;
-    maior_sequencia: number;
+    moldura?: number;
+    centro?: number;
+    pares?: number;
+    impares?: number;
+    repetidas_anterior?: number;
+    soma?: number;
+    primos?: number;
+    fibonacci?: number;
+    maior_sequencia?: number;
+    quadrantes?: string | number;
+    linhas?: number;
+    colunas?: number;
+    [key: string]: any;
   };
   justificativa: string[];
 }
@@ -151,9 +155,13 @@ export interface TesteCegoResultadoItem {
   dezenas_acertadas: number[];
   premiado: boolean;
   faixa_premio?: string;
+  espelho_acertos?: number;
+  espelho_premiado?: boolean;
+  espelho_faixa?: string;
 }
 
 export interface TesteCegoResponse {
+  modalidade_slug?: string;
   concurso_auditado: number;
   data_sorteio: string;
   dezenas_sorteadas: number[];
@@ -206,8 +214,9 @@ export const loteriaApi = {
     return response.data;
   },
 
-  getPromptTemplates: async (): Promise<PromptTemplateItem[]> => {
-    const response = await api.get('/analise/prompts/templates');
+  getPromptTemplates: async (modalidadeSlug?: string): Promise<PromptTemplateItem[]> => {
+    const url = modalidadeSlug ? `/analise/prompts/templates?modalidade=${modalidadeSlug}` : '/analise/prompts/templates';
+    const response = await api.get(url);
     return response.data;
   },
 

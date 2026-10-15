@@ -24,7 +24,7 @@ from app.services.sync_draws import sincronizar_modalidade_historico, sincroniza
 from app.services.advanced_analytics import processar_estatisticas_avancadas
 from app.services.smart_generator import gerar_top_jogos_inteligentes
 from app.services.ai_copilot import (
-    PROMPT_TEMPLATES,
+    obter_catalogo_prompts_modalidade,
     construir_prompt_ia,
     exportar_concursos_csv_string,
     executar_teste_cego
@@ -48,40 +48,71 @@ REGRAS_LOTERIAS = {
     "dupla-sena": {"total": 50, "sorteio": 6}
 }
 
+
+async def ensure_modalidade_sorteios(slug: str, modalidade_id: int, db: Session, limit: int = 50):
+    """Garante que a modalidade tenha histórico no banco de dados, disparando auto-sync se necessário."""
+    total = db.query(Sorteio).filter(Sorteio.modalidade_id == modalidade_id).count()
+    if total == 0:
+        try:
+            await sincronizar_modalidade_historico(slug, db, limit=limit)
+        except Exception as e:
+            print(f"Auto-sync de contingência para {slug} falhou: {e}")
+
+
 @router.post("/probabilidade", response_model=ProbabilidadeResponse)
-def obter_analise_probabilidade(req: ProbabilidadeRequest):
+def obter_probabilidade(req: ProbabilidadeRequest):
     slug = req.modalidade_slug.lower()
     if slug not in REGRAS_LOTERIAS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Modalidade '{req.modalidade_slug}' não suportada para cálculo estatístico."
+            detail=f"Modalidade '{req.modalidade_slug}' não suportada."
         )
-        
+    
     regras = REGRAS_LOTERIAS[slug]
-    total_combinacoes, jogos_simples, prob_1_em = calcular_probabilidade(
-        dezenas_jogadas=req.dezenas_jogadas,
-        total_bolas=regras["total"],
-        dezenas_sorteio=regras["sorteio"]
+    total_globo = regras["total"]
+    dezenas_sorteadas = regras["sorteio"]
+    dezenas_jogadas = req.dezenas_jogadas
+
+    if dezenas_jogadas < dezenas_sorteadas:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Para {req.modalidade_slug}, o mínimo de dezenas selecionadas é {dezenas_sorteadas}."
+        )
+    
+    preco_base = PRECOS_LOTERIAS.get(slug, 5.00)
+    
+    resultado = calcular_probabilidade(
+        total_globo=total_globo,
+        dezenas_sorteadas=dezenas_sorteadas,
+        dezenas_jogadas=dezenas_jogadas,
+        preco_aposta_simples=preco_base
     )
     
-    preco_base = PRECOS_LOTERIAS.get(slug, 5.0)
-    custo_estimado = jogos_simples * preco_base
-    
-    return {
-        "total_combinacoes": total_combinacoes,
-        "jogos_simples": jogos_simples,
-        "probabilidade_1_em": prob_1_em,
-        "custo_estimado": custo_estimado
-    }
+    return resultado
 
 @router.post("/sincronizar-todos")
 async def sincronizar_todos_resultados(db: Session = Depends(get_db)):
-    """Dispara a sincronização dos sorteios mais recentes de todas as modalidades."""
-    return await sincronizar_todas_modalidades(db, limit=100)
+    """Sincroniza os últimos 100 sorteios de todas as modalidades cadastradas."""
+    try:
+        resultado = await sincronizar_todas_modalidades(db, limit=100)
+        return {
+            "status": "sucesso",
+            "mensagem": "Sincronização global concluída.",
+            "detalhes": resultado
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Falha na sincronização global: {str(e)}"
+        )
 
 @router.post("/{slug}/sincronizar")
-async def sincronizar_modalidade_resultados(slug: str, limit: int = 100, db: Session = Depends(get_db)):
-    """Sincroniza os sorteios recentes para uma modalidade específica."""
+async def sincronizar_modalidade_especifica(
+    slug: str,
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db)
+):
+    """Sincroniza sorteios de uma modalidade específica via API da Caixa."""
     try:
         novos = await sincronizar_modalidade_historico(slug, db, limit=limit)
         return {"status": "sucesso", "codigo_slug": slug, "novos_sorteios_inseridos": novos}
@@ -92,7 +123,7 @@ async def sincronizar_modalidade_resultados(slug: str, limit: int = 100, db: Ses
         )
 
 @router.get("/{slug}/estatisticas", response_model=EstatisticaResponse)
-def obter_estatisticas_locais(slug: str, db: Session = Depends(get_db)):
+async def obter_estatisticas_locais(slug: str, db: Session = Depends(get_db)):
     """Calcula estatísticas básicas de atrasos, frequências e paridades com base no histórico local."""
     modalidade = db.query(Modalidade).filter(Modalidade.codigo_slug == slug).first()
     if not modalidade:
@@ -100,13 +131,14 @@ def obter_estatisticas_locais(slug: str, db: Session = Depends(get_db)):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Modalidade {slug} não cadastrada."
         )
-        
+    
+    await ensure_modalidade_sorteios(slug, modalidade.id, db)
     sorteios = db.query(Sorteio).filter(Sorteio.modalidade_id == modalidade.id).order_by(Sorteio.numero_concurso.desc()).all()
     
     if not sorteios:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Nenhum sorteio cadastrado para calcular estatísticas. Execute a sincronização primeiro."
+            detail=f"Nenhum sorteio cadastrado para a modalidade '{slug}'. Execute a sincronização."
         )
         
     total_dezenas = modalidade.total_dezenas_globo
@@ -159,7 +191,7 @@ def obter_estatisticas_locais(slug: str, db: Session = Depends(get_db)):
     }
 
 @router.get("/{slug}/estatisticas-avancadas", response_model=EstatisticaAvancadaResponse)
-def obter_estatisticas_avancadas_endpoint(
+async def obter_estatisticas_avancadas_endpoint(
     slug: str,
     limit: Optional[int] = Query(30, description="Janela de concursos (ex: 30, 50, 100, 500 ou vazio para todos)"),
     db: Session = Depends(get_db)
@@ -172,6 +204,7 @@ def obter_estatisticas_avancadas_endpoint(
             detail=f"Modalidade {slug} não cadastrada."
         )
         
+    await ensure_modalidade_sorteios(slug, modalidade.id, db)
     query = db.query(Sorteio).filter(Sorteio.modalidade_id == modalidade.id).order_by(Sorteio.numero_concurso.desc())
     if limit and limit > 0:
         query = query.limit(limit)
@@ -180,18 +213,18 @@ def obter_estatisticas_avancadas_endpoint(
     if not sorteios:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Nenhum sorteio cadastrado para calcular estatísticas."
+            detail=f"Nenhum sorteio cadastrado para calcular estatísticas avançadas."
         )
         
     return processar_estatisticas_avancadas(
         sorteios=sorteios,
         total_dezenas=modalidade.total_dezenas_globo or 25,
-        colunas_volante=5 if slug == "lotofacil" else 10,
+        colunas_volante=5 if slug in ("lotofacil", "dupla-sena") else 10,
         slug=slug
     )
 
 @router.post("/{slug}/gerar-jogos-ia", response_model=SmartGameResponse)
-def gerar_jogos_ia_endpoint(
+async def gerar_jogos_ia_endpoint(
     slug: str,
     req: SmartGameRequest,
     db: Session = Depends(get_db)
@@ -204,6 +237,7 @@ def gerar_jogos_ia_endpoint(
             detail=f"Modalidade {slug} não cadastrada."
         )
         
+    await ensure_modalidade_sorteios(slug, modalidade.id, db)
     sorteios = db.query(Sorteio).filter(Sorteio.modalidade_id == modalidade.id)\
         .order_by(Sorteio.numero_concurso.desc())\
         .limit(req.amostragem_concursos or 30)\
@@ -212,12 +246,11 @@ def gerar_jogos_ia_endpoint(
     if not sorteios:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Nenhum concurso encontrado para basear a geração estatística."
+            detail=f"Nenhum concurso encontrado para basear a geração estatística da modalidade {slug}."
         )
         
     ultimo_sorteio = sorteios[0].dezenas_sorteadas if sorteios else None
     
-    # Calcular quentes e atrasadas da amostra
     freq = {i: 0 for i in range(1, (modalidade.total_dezenas_globo or 25) + 1)}
     for s in sorteios:
         for d in s.dezenas_sorteadas:
@@ -228,6 +261,7 @@ def gerar_jogos_ia_endpoint(
     atrasadas = [num for num, _ in sorted(freq.items(), key=lambda x: x[1])[:6]]
     
     jogos_resultado = gerar_top_jogos_inteligentes(
+        modalidade_slug=slug,
         total_dezenas_globo=modalidade.total_dezenas_globo or 25,
         dezenas_por_jogo=modalidade.min_dezenas_aposta or 15,
         quantidade_jogos=req.quantidade_jogos or 5,
@@ -245,17 +279,22 @@ def gerar_jogos_ia_endpoint(
     }
 
 @router.get("/prompts/templates")
-def listar_templates_prompts():
-    """Lista todos os templates de prompts de IA disponíveis."""
-    return PROMPT_TEMPLATES
+def listar_templates_prompts(modalidade: Optional[str] = Query("lotofacil")):
+    """Lista todos os templates de prompts de IA disponíveis para a modalidade especificada."""
+    return obter_catalogo_prompts_modalidade(modalidade or "lotofacil")
+
+@router.get("/{slug}/prompts/templates")
+def listar_templates_prompts_por_slug(slug: str):
+    """Lista templates de prompts de IA contextualizados para a modalidade da rota."""
+    return obter_catalogo_prompts_modalidade(slug)
 
 @router.post("/{slug}/exportar-prompt-ia", response_model=ExportarPromptResponse)
-def exportar_prompt_ia_endpoint(
+async def exportar_prompt_ia_endpoint(
     slug: str,
     req: ExportarPromptRequest,
     db: Session = Depends(get_db)
 ):
-    """Constrói e retorna um prompt especializado preenchido com dados reais do banco."""
+    """Constrói e retorna um prompt especializado preenchido com dados reais do banco para a modalidade."""
     modalidade = db.query(Modalidade).filter(Modalidade.codigo_slug == slug).first()
     if not modalidade:
         raise HTTPException(
@@ -263,6 +302,7 @@ def exportar_prompt_ia_endpoint(
             detail=f"Modalidade {slug} não cadastrada."
         )
         
+    await ensure_modalidade_sorteios(slug, modalidade.id, db)
     sorteios = db.query(Sorteio).filter(Sorteio.modalidade_id == modalidade.id)\
         .order_by(Sorteio.numero_concurso.desc())\
         .limit(req.amostragem_concursos or 30)\
@@ -271,18 +311,19 @@ def exportar_prompt_ia_endpoint(
     if not sorteios:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Nenhum concurso disponível para gerar o prompt."
+            detail=f"Nenhum concurso disponível para gerar o prompt da modalidade {slug}."
         )
         
     return construir_prompt_ia(
         template_id=req.template_id,
         sorteios=sorteios,
+        modalidade_slug=slug,
         ia_destino=req.ia_destino,
         incluir_concurso_resultado=req.incluir_concurso_resultado
     )
 
 @router.get("/{slug}/exportar-csv")
-def exportar_csv_concursos_endpoint(
+async def exportar_csv_concursos_endpoint(
     slug: str,
     limit: Optional[int] = Query(30, description="Quantidade de concursos a exportar"),
     db: Session = Depends(get_db)
@@ -292,12 +333,13 @@ def exportar_csv_concursos_endpoint(
     if not modalidade:
         raise HTTPException(status_code=404, detail="Modalidade não encontrada")
         
+    await ensure_modalidade_sorteios(slug, modalidade.id, db)
     query = db.query(Sorteio).filter(Sorteio.modalidade_id == modalidade.id).order_by(Sorteio.numero_concurso.desc())
     if limit and limit > 0:
         query = query.limit(limit)
     sorteios = query.all()
     
-    csv_content = exportar_concursos_csv_string(sorteios)
+    csv_content = exportar_concursos_csv_string(sorteios, modalidade_slug=slug)
     return Response(
         content=csv_content,
         media_type="text/csv",
@@ -305,26 +347,33 @@ def exportar_csv_concursos_endpoint(
     )
 
 @router.post("/{slug}/teste-cego", response_model=TesteCegoResponse)
-def executar_teste_cego_endpoint(
+async def executar_teste_cego_endpoint(
     slug: str,
     req: TesteCegoRequest,
     db: Session = Depends(get_db)
 ):
-    """Executa o teste cego de backtesting contra o último concurso cadastrado."""
+    """Executa o teste cego de backtesting contra o último concurso cadastrado para qualquer modalidade."""
     modalidade = db.query(Modalidade).filter(Modalidade.codigo_slug == slug).first()
     if not modalidade:
-        raise HTTPException(status_code=404, detail="Modalidade não encontrada")
+        raise HTTPException(status_code=404, detail=f"Modalidade '{slug}' não encontrada")
         
+    await ensure_modalidade_sorteios(slug, modalidade.id, db)
     sorteios = db.query(Sorteio).filter(Sorteio.modalidade_id == modalidade.id)\
         .order_by(Sorteio.numero_concurso.desc())\
         .limit((req.amostragem_treino or 30) + 1)\
         .all()
         
     if len(sorteios) < 2:
-        raise HTTPException(status_code=400, detail="Histórico insuficiente para teste cego.")
+        raise HTTPException(
+            status_code=400,
+            detail=f"São necessários pelo menos 2 concursos cadastrados da {slug} para realizar o teste cego."
+        )
         
     return executar_teste_cego(
         sorteios=sorteios,
+        modalidade_slug=slug,
+        total_dezenas_globo=modalidade.total_dezenas_globo or 25,
+        dezenas_por_jogo=modalidade.min_dezenas_aposta or 15,
         jogos_custom=req.jogos_gerados,
         amostragem_treino=req.amostragem_treino or 30
     )
@@ -339,4 +388,3 @@ def listar_sorteios_concursos(slug: str, limit: int = 10, db: Session = Depends(
             detail=f"Modalidade {slug} não cadastrada."
         )
     return db.query(Sorteio).filter(Sorteio.modalidade_id == modalidade.id).order_by(Sorteio.numero_concurso.desc()).limit(limit).all()
-

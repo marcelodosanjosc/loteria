@@ -110,12 +110,17 @@ class TesteCegoResultadoItem(BaseModel):
     dezenas_acertadas: List[int]
     premiado: bool
     faixa_premio: Optional[str] = None
+    espelho_acertos: Optional[int] = None
+    espelho_premiado: Optional[bool] = None
+    espelho_faixa: Optional[str] = None
 
 class TesteCegoResponse(BaseModel):
+    modalidade_slug: Optional[str] = None
     concurso_auditado: int
     data_sorteio: date
     dezenas_sorteadas: List[int]
     total_jogos_testados: int
     jogos_resultados: List[TesteCegoResultadoItem]
     resumo_acertos: Dict[int, int]
+
 
