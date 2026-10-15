@@ -1,0 +1,26 @@
+databases:
+  - name: loteria-db
+    databaseName: loteria_db
+    user: postgres
+    region: oregon
+    plan: free
+
+services:
+  - type: web
+    name: loteria-backend
+    runtime: python
+    region: oregon
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: loteria-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: PYTHON_VERSION
+        value: 3.11.8
