@@ -26,6 +26,7 @@ backend/venv/
 backend/__pycache__/
 frontend/.next/
 frontend/node_modules/
+<<<<<<< HEAD
 frontend/tsconfig.tsbuildinfo
 
 # AI Agent & MCP Directories
@@ -34,4 +35,13 @@ frontend/tsconfig.tsbuildinfo
 .claude/
 .opencode/
 .playwright-mcp/
+=======
+
+
+.agent/*
+.claude/*
+.gemini/*
+.opencode/*
+.playwright-mcp/*
+>>>>>>> f45b105 (ajuste no ignore)
 
