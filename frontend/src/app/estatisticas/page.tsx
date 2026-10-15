@@ -1,16 +1,48 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { loteriaApi, EstatisticaAvancadaResponse } from '../../services/api';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import SpatialVolante from '../../components/SpatialVolante';
 import Link from 'next/link';
 
-export default function EstatisticasPage() {
-  const [modalidade, setModalidade] = useState<string>("lotofacil");
+function EstatisticasContent() {
+  const searchParams = useSearchParams();
+  const urlMod = searchParams.get('modalidade');
+
+  const [modalidade, setModalidade] = useState<string>(() => {
+    if (urlMod && ['lotofacil', 'mega-sena', 'quina', 'lotomania', 'dupla-sena'].includes(urlMod)) {
+      return urlMod;
+    }
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('lottomath_modalidade');
+      if (saved && ['lotofacil', 'mega-sena', 'quina', 'lotomania', 'dupla-sena'].includes(saved)) {
+        return saved;
+      }
+    }
+    return "lotofacil";
+  });
   const [limiteAmostragem, setLimiteAmostragem] = useState<number>(30);
   const [stats, setStats] = useState<EstatisticaAvancadaResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+
+  // Sincroniza se o parâmetro de URL mudar
+  useEffect(() => {
+    if (urlMod && ['lotofacil', 'mega-sena', 'quina', 'lotomania', 'dupla-sena'].includes(urlMod)) {
+      setModalidade(urlMod);
+    }
+  }, [urlMod]);
+
+  const handleModalidadeChange = (novaModalidade: string) => {
+    setModalidade(novaModalidade);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('lottomath_modalidade', novaModalidade);
+      const url = new URL(window.location.href);
+      url.searchParams.set('modalidade', novaModalidade);
+      window.history.replaceState({}, '', url.toString());
+    }
+  };
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -95,7 +127,7 @@ export default function EstatisticasPage() {
           {/* Seletor de Modalidade */}
           <select
             value={modalidade}
-            onChange={(e) => setModalidade(e.target.value)}
+            onChange={(e) => handleModalidadeChange(e.target.value)}
             style={{
               padding: '8px 16px',
               borderRadius: '8px',
@@ -114,9 +146,9 @@ export default function EstatisticasPage() {
             <option value="dupla-sena">Dupla-Sena</option>
           </select>
 
-          {/* Botão para Gerador IA */}
+          {/* Botão para Gerador IA & Prompts contextualizado */}
           <Link
-            href="/analise-ia"
+            href={`/analise-ia?modalidade=${modalidade}&aba=prompts`}
             className="btn btn-primary"
             style={{
               backgroundColor: '#6366f1',
@@ -315,6 +347,14 @@ export default function EstatisticasPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function EstatisticasPage() {
+  return (
+    <Suspense fallback={<div style={{ textAlign: 'center', padding: '60px 0', color: '#64748b' }}>Carregando Painel Estatístico...</div>}>
+      <EstatisticasContent />
+    </Suspense>
   );
 }
 

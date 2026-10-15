@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   loteriaApi,
   SmartGameItem,
@@ -67,9 +68,58 @@ const MODALIDADES: ModalidadeConfig[] = [
   }
 ];
 
-export default function AnaliseIAPage() {
-  const [modalidade, setModalidade] = useState<string>('lotofacil');
-  const [abaAtiva, setAbaAtiva] = useState<'gerador' | 'prompts' | 'teste_cego'>('gerador');
+function AnaliseIAContent() {
+  const searchParams = useSearchParams();
+  const paramModalidade = searchParams.get('modalidade');
+  const paramAba = searchParams.get('aba');
+
+  const [modalidade, setModalidade] = useState<string>(() => {
+    if (paramModalidade && MODALIDADES.some((m) => m.slug === paramModalidade)) {
+      return paramModalidade;
+    }
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('lottomath_modalidade');
+      if (saved && MODALIDADES.some((m) => m.slug === saved)) {
+        return saved;
+      }
+    }
+    return 'lotofacil';
+  });
+
+  const [abaAtiva, setAbaAtiva] = useState<'gerador' | 'prompts' | 'teste_cego'>(() => {
+    if (paramAba === 'prompts') return 'prompts';
+    if (paramAba === 'teste_cego') return 'teste_cego';
+    return 'gerador';
+  });
+
+  // Sincroniza estados caso a URL mude
+  useEffect(() => {
+    if (paramModalidade && MODALIDADES.some((m) => m.slug === paramModalidade)) {
+      setModalidade(paramModalidade);
+    }
+    if (paramAba === 'prompts' || paramAba === 'teste_cego' || paramAba === 'gerador') {
+      setAbaAtiva(paramAba);
+    }
+  }, [paramModalidade, paramAba]);
+
+  const handleSelecionarModalidade = (slug: string) => {
+    setModalidade(slug);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('lottomath_modalidade', slug);
+      const url = new URL(window.location.href);
+      url.searchParams.set('modalidade', slug);
+      window.history.replaceState({}, '', url.toString());
+    }
+  };
+
+  const handleTrocarAba = (novaAba: 'gerador' | 'prompts' | 'teste_cego') => {
+    setAbaAtiva(novaAba);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('aba', novaAba);
+      window.history.replaceState({}, '', url.toString());
+    }
+  };
 
   // Estados do Gerador Inteligente
   const [amostragem, setAmostragem] = useState<number>(30);
@@ -107,11 +157,35 @@ export default function AnaliseIAPage() {
       })
       .catch(console.error);
 
-    // Limpar estados específicos ao trocar de loteria
+    // Limpar estados de jogos e teste cego ao trocar de loteria
     setJogosGerados([]);
     setPromptTexto('');
     setResultadoTesteCego(null);
   }, [modalidade]);
+
+  // Carrega automaticamente o prompt correspondente quando a aba de Prompts estiver ativa
+  useEffect(() => {
+    if (abaAtiva === 'prompts' && templates.length > 0) {
+      setCarregandoPrompt(true);
+      const targetTemplateId = templateSelecionado || templates[0].id;
+      loteriaApi
+        .exportarPromptIA(modalidade, {
+          template_id: targetTemplateId,
+          ia_destino: iaDestino,
+          amostragem_concursos: amostragem,
+          incluir_concurso_resultado: true,
+        })
+        .then((res) => {
+          setPromptTexto(res.prompt_formatado);
+        })
+        .catch((err) => {
+          console.error("Erro ao gerar prompt automático:", err);
+        })
+        .finally(() => {
+          setCarregandoPrompt(false);
+        });
+    }
+  }, [abaAtiva, modalidade, templateSelecionado, iaDestino, amostragem, templates]);
 
   // Gerar jogos inteligentes
   const handleGerarJogosIA = async () => {
@@ -252,7 +326,7 @@ export default function AnaliseIAPage() {
             return (
               <button
                 key={m.slug}
-                onClick={() => setModalidade(m.slug)}
+                onClick={() => handleSelecionarModalidade(m.slug)}
                 style={{
                   padding: '8px 16px',
                   borderRadius: '20px',
@@ -276,7 +350,7 @@ export default function AnaliseIAPage() {
       {/* Abas de Navegação das Ferramentas de IA */}
       <div style={{ display: 'flex', gap: '8px', backgroundColor: '#1e293b', padding: '6px', borderRadius: '12px', width: 'fit-content', flexWrap: 'wrap' }}>
         <button
-          onClick={() => setAbaAtiva('gerador')}
+          onClick={() => handleTrocarAba('gerador')}
           style={{
             padding: '10px 20px',
             borderRadius: '8px',
@@ -292,7 +366,7 @@ export default function AnaliseIAPage() {
           ⭐ Top Jogos Otimizados ({modalidadeAtiva.label})
         </button>
         <button
-          onClick={() => setAbaAtiva('prompts')}
+          onClick={() => handleTrocarAba('prompts')}
           style={{
             padding: '10px 20px',
             borderRadius: '8px',
@@ -308,7 +382,7 @@ export default function AnaliseIAPage() {
           📋 Prompts Especializados ({modalidadeAtiva.label})
         </button>
         <button
-          onClick={() => setAbaAtiva('teste_cego')}
+          onClick={() => handleTrocarAba('teste_cego')}
           style={{
             padding: '10px 20px',
             borderRadius: '8px',
@@ -836,5 +910,13 @@ export default function AnaliseIAPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AnaliseIAPage() {
+  return (
+    <Suspense fallback={<div style={{ textAlign: 'center', padding: '60px 0', color: '#64748b' }}>Carregando Módulo de IA & Prompts...</div>}>
+      <AnaliseIAContent />
+    </Suspense>
   );
 }
