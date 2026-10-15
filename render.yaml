@@ -1,7 +1,7 @@
 databases:
   - name: loteria-db
     databaseName: loteria_db
-    user: postgres
+    user: loteria_user
     region: oregon
     plan: free
 
