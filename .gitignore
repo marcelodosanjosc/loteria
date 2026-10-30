@@ -36,4 +36,4 @@ frontend/tsconfig.tsbuildinfo
 .opencode/
 .playwright-mcp/
 skills-lock.json
-
+.cursor/
