@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
+from datetime import date
 from uuid import UUID
 from typing import List
 from app.database import get_db
@@ -24,9 +26,10 @@ def salvar_jogo_usuario(
             detail=f"Modalidade '{req.modalidade_slug}' não encontrada."
         )
         
-    # Verificar cotas do usuário
+    # Verificar cotas diárias do usuário (apenas jogos salvos hoje)
     jogos_hoje_count = db.query(JogoUsuario).filter(
-        JogoUsuario.usuario_id == current_user.id
+        JogoUsuario.usuario_id == current_user.id,
+        func.date(JogoUsuario.criado_em) == date.today()
     ).count()
     
     if jogos_hoje_count >= current_user.limite_diario_geracao:

@@ -170,7 +170,22 @@ export interface TesteCegoResponse {
   resumo_acertos: Record<number, number>;
 }
 
+export interface SorteioResponse {
+  id: string;
+  modalidade_id: string;
+  numero_concurso: number;
+  data_sorteio: string;
+  dezenas_sorteadas: number[];
+  acumulou: boolean;
+  valor_acumulado?: number | null;
+}
+
 export const loteriaApi = {
+  getSorteios: async (modalidadeSlug: string, limit: number = 1): Promise<SorteioResponse[]> => {
+    const response = await api.get(`/analise/${modalidadeSlug}/sorteios?limit=${limit}`);
+    return response.data;
+  },
+
   registrar: async (nome: string, email: string, senha: string): Promise<any> => {
     const response = await api.post('/auth/register', { nome, email, senha });
     return response.data;

@@ -1,26 +1,10 @@
 from typing import List, Dict, Any, Optional
-from sqlalchemy.orm import Session
-from app.models.lottery import Modalidade, Sorteio
+from app.services.filters import (
+    MOLDURA_LOTOFACIL as LOTOFACIL_MOLDURA,
+    obter_maior_sequencia_consecutiva as calcular_maior_sequencia_consecutiva
+)
 
-# Definições espaciais para Lotofácil (5x5, 25 dezenas)
-LOTOFACIL_MOLDURA = {1, 2, 3, 4, 5, 6, 10, 11, 15, 16, 20, 21, 22, 23, 24, 25}
-LOTOFACIL_CENTRO = {7, 8, 9, 12, 13, 14, 17, 18, 19}
-
-def calcular_maior_sequencia_consecutiva(dezenas: List[int]) -> int:
-    """Calcula o tamanho da maior sequência de dezenas consecutivas em um sorteio."""
-    if not dezenas:
-        return 0
-    ordenadas = sorted(dezenas)
-    max_seq = 1
-    atual_seq = 1
-    for i in range(1, len(ordenadas)):
-        if ordenadas[i] == ordenadas[i - 1] + 1:
-            atual_seq += 1
-            if atual_seq > max_seq:
-                max_seq = atual_seq
-        elif ordenadas[i] != ordenadas[i - 1]:
-            atual_seq = 1
-    return max_seq
+LOTOFACIL_CENTRO = set(range(1, 26)) - LOTOFACIL_MOLDURA
 
 def obter_linha_coluna(dezena: int, colunas: int = 5) -> tuple[int, int]:
     """Retorna a (linha, coluna) de uma dezena (base 1-indexada)."""
@@ -29,7 +13,7 @@ def obter_linha_coluna(dezena: int, colunas: int = 5) -> tuple[int, int]:
     return linha, coluna
 
 def processar_estatisticas_avancadas(
-    sorteios: List[Sorteio],
+    sorteios: List[Any],
     total_dezenas: int,
     colunas_volante: int = 5,
     slug: str = "lotofacil"

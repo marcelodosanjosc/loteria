@@ -87,6 +87,23 @@ function EstatisticasContent() {
     }));
   }, [stats]);
 
+  // Metadados dinâmicos por modalidade para evitar textos fixos da Lotofácil
+  const modMeta = useMemo(() => {
+    switch (modalidade) {
+      case 'mega-sena':
+        return { sorteio: 6, total: 60, corte: 30, somaIdeal: '130 a 220', padraoRep: '0 a 1 repetida' };
+      case 'quina':
+        return { sorteio: 5, total: 80, corte: 40, somaIdeal: '150 a 250', padraoRep: '0 a 1 repetida' };
+      case 'lotomania':
+        return { sorteio: 20, total: 100, corte: 50, somaIdeal: '900 a 1.100 (sorteio)', padraoRep: '3 a 5 repetidas' };
+      case 'dupla-sena':
+        return { sorteio: 6, total: 50, corte: 25, somaIdeal: '120 a 190', padraoRep: '0 a 1 repetida' };
+      case 'lotofacil':
+      default:
+        return { sorteio: 15, total: 25, corte: 12, somaIdeal: '180 a 220', padraoRep: '9 repetidas' };
+    }
+  }, [modalidade]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
       {/* Header com Filtros */}
@@ -177,7 +194,7 @@ function EstatisticasContent() {
             <div className="glass-panel" style={{ padding: '16px' }}>
               <div style={{ fontSize: '12px', color: '#94a3b8' }}>Média na Moldura</div>
               <div style={{ fontSize: '24px', fontWeight: 800, color: '#38bdf8', marginTop: '4px' }}>
-                {stats.moldura_centro.moldura_media} <span style={{ fontSize: '13px', color: '#64748b' }}>/ 15</span>
+                {stats.moldura_centro.moldura_media} <span style={{ fontSize: '13px', color: '#64748b' }}>/ {modMeta.sorteio}</span>
               </div>
               <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>Centro: {stats.moldura_centro.centro_medio} dezenas</div>
             </div>
@@ -187,7 +204,7 @@ function EstatisticasContent() {
               <div style={{ fontSize: '24px', fontWeight: 800, color: '#10b981', marginTop: '4px' }}>
                 {stats.repeticao_concurso_anterior.media_repetidas} <span style={{ fontSize: '13px', color: '#64748b' }}>dezenas</span>
               </div>
-              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>Padrão mais frequente: 9 repetidas</div>
+              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>Padrão: {modMeta.padraoRep}</div>
             </div>
 
             <div className="glass-panel" style={{ padding: '16px' }}>
@@ -195,7 +212,7 @@ function EstatisticasContent() {
               <div style={{ fontSize: '24px', fontWeight: 800, color: '#f59e0b', marginTop: '4px' }}>
                 {stats.soma_media}
               </div>
-              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>Faixa ideal: 180 a 220</div>
+              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>Faixa ideal: {modMeta.somaIdeal}</div>
             </div>
 
             <div className="glass-panel" style={{ padding: '16px' }}>
@@ -231,7 +248,7 @@ function EstatisticasContent() {
                     </span>
                     <div style={{ flexGrow: 1, margin: '0 16px', height: '8px', backgroundColor: '#1e293b', borderRadius: '4px', overflow: 'hidden' }}>
                       <div style={{ 
-                        width: `${Math.min(100, (item.frequencia / maisFrequentes[0].frequencia) * 100)}%`, 
+                        width: `${Math.min(100, (item.frequencia / Math.max(1, maisFrequentes[0]?.frequencia || 1)) * 100)}%`, 
                         height: '100%', 
                         backgroundColor: '#10b981',
                         borderRadius: '4px'
@@ -254,7 +271,7 @@ function EstatisticasContent() {
                     </span>
                     <div style={{ flexGrow: 1, margin: '0 16px', height: '8px', backgroundColor: '#1e293b', borderRadius: '4px', overflow: 'hidden' }}>
                       <div style={{ 
-                        width: `${Math.min(100, (item.atraso / Math.max(1, maisAtrasadas[0].atraso)) * 100)}%`, 
+                        width: `${Math.min(100, (item.atraso / Math.max(1, maisAtrasadas[0]?.atraso || 1)) * 100)}%`, 
                         height: '100%', 
                         backgroundColor: '#ef4444',
                         borderRadius: '4px'
@@ -270,7 +287,7 @@ function EstatisticasContent() {
           {/* Gráfico de Somas e Balanço Par/Ímpar e Baixas/Altas */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
             {/* Gráfico de Linha de Somas */}
-            <div className="glass-panel" style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
               <h3 style={{ fontSize: '18px', fontWeight: 700 }}>📈 Distribuição e Soma das Dezenas (Últimos {Math.min(50, stats.total_concursos_analisados)} Concursos)</h3>
               <div style={{ width: '100%', height: '220px' }}>
                 <ResponsiveContainer width="100%" height="100%">
@@ -308,8 +325,8 @@ function EstatisticasContent() {
                 {/* Baixas / Altas */}
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px' }}>
-                    <span style={{ color: '#10b981' }}>Baixas 01-12 ({stats.altas_baixas.baixas_pct}%)</span>
-                    <span style={{ color: '#a855f7' }}>Altas 13-25 ({stats.altas_baixas.altas_pct}%)</span>
+                    <span style={{ color: '#10b981' }}>Baixas 01-{String(modMeta.corte).padStart(2, '0')} ({stats.altas_baixas.baixas_pct}%)</span>
+                    <span style={{ color: '#a855f7' }}>Altas {String(modMeta.corte + 1).padStart(2, '0')}-{modalidade === 'lotomania' ? '00' : String(modMeta.total).padStart(2, '0')} ({stats.altas_baixas.altas_pct}%)</span>
                   </div>
                   <div style={{ height: '10px', backgroundColor: '#1e293b', borderRadius: '5px', overflow: 'hidden', display: 'flex' }}>
                     <div style={{ width: `${stats.altas_baixas.baixas_pct}%`, backgroundColor: '#10b981' }}></div>

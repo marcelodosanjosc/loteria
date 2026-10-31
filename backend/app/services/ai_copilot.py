@@ -307,15 +307,17 @@ def executar_teste_cego(
     sorteios_treino = sorteios[1:amostragem_treino + 1]
 
     if not jogos_custom:
+        from app.services.advanced_analytics import processar_estatisticas_avancadas
         ultimo_sorteio_treino = sorteios_treino[0].dezenas_sorteadas if sorteios_treino else None
 
-        freq = {i: 0 for i in range(1, total_dezenas_globo + 1)}
-        for s in sorteios_treino:
-            for d in s.dezenas_sorteadas:
-                if d in freq:
-                    freq[d] += 1
-        quentes = [num for num, _ in sorted(freq.items(), key=lambda x: x[1], reverse=True)[:8]]
-        atrasadas = [num for num, _ in sorted(freq.items(), key=lambda x: x[1])[:6]]
+        stats_treino = processar_estatisticas_avancadas(
+            sorteios=sorteios_treino,
+            total_dezenas=total_dezenas_globo,
+            colunas_volante=5 if slug == "lotofacil" else 10,
+            slug=slug
+        )
+        quentes = stats_treino.get("dezenas_quentes", [])[:8]
+        atrasadas = stats_treino.get("dezenas_atrasadas", [])[:6]
 
         jogos_gerados_obj = gerar_top_jogos_inteligentes(
             modalidade_slug=slug,

@@ -28,49 +28,38 @@ def gerar_fechamento(req: FechamentoRequest):
         f"dezenas selecionadas (total={len(req.dezenas_escolhidas)}): {req.dezenas_escolhidas}"
     )
     
-    # Validações preventivas de tamanho
-    n = len(req.dezenas_escolhidas)
-    if slug == "mega-sena":
-        tamanho_bilhete = 6
-        if n > 15:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Para evitar sobrecarga no servidor, o limite de dezenas para fechamento da Mega-Sena é 15."
-            )
-    elif slug == "lotofacil":
-        tamanho_bilhete = 15
-        if n > 21:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Para evitar sobrecarga no servidor, o limite de dezenas para fechamento da Lotofácil é 21."
-            )
-    elif slug == "quina":
-        tamanho_bilhete = 5
-        if n > 18:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Para evitar sobrecarga no servidor, o limite de dezenas para fechamento da Quina é 18."
-            )
-    elif slug == "dupla-sena":
-        tamanho_bilhete = 6
-        if n > 15:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Para evitar sobrecarga no servidor, o limite de dezenas para fechamento da Dupla-Sena é 15."
-            )
-    elif slug == "lotomania":
-        tamanho_bilhete = 50
-        if n > 70 or n < 50:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Para a Lotomania, selecione entre 50 e 70 dezenas para o fechamento matemático."
-            )
-    else:
+    # Deduplica dezenas e valida tamanho e limites do globo por modalidade
+    dezenas_unicas = sorted(list(set(req.dezenas_escolhidas)))
+    n = len(dezenas_unicas)
+    limites_modalidade = {
+        "mega-sena":   (6,  6, 15,  60),
+        "lotofacil":   (15, 15, 21, 25),
+        "quina":       (5,  5, 18,  80),
+        "dupla-sena":  (6,  6, 15,  50),
+        "lotomania":   (50, 50, 70, 100),
+    }
+    if slug not in limites_modalidade:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Fechamentos automáticos para a modalidade '{req.modalidade_slug}' não estão disponíveis no momento."
         )
-        
+
+    tamanho_bilhete, min_dez, max_dez, max_globo = limites_modalidade[slug]
+    if n < min_dez or n > max_dez:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Para a modalidade '{slug}', selecione entre {min_dez} e {max_dez} dezenas únicas (recebido: {n})."
+        )
+    if any(d < 1 or d > max_globo for d in dezenas_unicas):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Todas as dezenas devem estar no intervalo de 1 a {max_globo}."
+        )
+    if req.garantia < 1 or req.condicao < 1 or req.garantia > req.condicao:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A garantia e a condição devem ser maiores que zero, e a garantia não pode superar a condição."
+        )
     if req.garantia > tamanho_bilhete or req.condicao > tamanho_bilhete:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

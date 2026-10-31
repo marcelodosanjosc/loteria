@@ -1,11 +1,27 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Menu, X } from 'lucide-react';
 
 export default function Header() {
+  const pathname = usePathname();
   const [email, setEmail] = useState<string | null>(null);
   const [menuAberto, setMenuAberto] = useState<boolean>(false);
+
+  const navLinkStyle = (path: string, isHighlight = false) => {
+    const active = pathname === path;
+    return {
+      color: active ? '#10b981' : isHighlight ? '#818cf8' : '#cbd5e1',
+      textDecoration: 'none',
+      fontSize: '14px',
+      fontWeight: active || isHighlight ? 700 : 500,
+      borderBottom: active ? '2px solid #10b981' : '2px solid transparent',
+      paddingBottom: '4px',
+      transition: 'all 0.2s',
+    };
+  };
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -41,19 +57,19 @@ export default function Header() {
         alignItems: 'center'
       }}>
         <h1 style={{ fontSize: '20px', fontWeight: 800, background: 'linear-gradient(90deg, #10b981, #6366f1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', margin: 0 }}>
-          <a href="/" style={{ textDecoration: 'none', color: 'inherit' }}>LottoMath</a>
+          <Link href="/" style={{ textDecoration: 'none', color: 'inherit' }}>LottoMath</Link>
         </h1>
         
         {/* Navegação Desktop */}
-        <nav className="desktop-nav" style={{ display: 'flex', gap: '18px', alignItems: 'center' }}>
-          <a href="/" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', fontWeight: 500 }}>Dashboard</a>
-          <a href="/simulador" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', fontWeight: 500 }}>Simulador</a>
-          <a href="/fechamento" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', fontWeight: 500 }}>Fechamentos</a>
-          <a href="/filtros" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', fontWeight: 500 }}>Filtros</a>
-          <a href="/estatisticas" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', fontWeight: 500 }}>Estatísticas</a>
-          <a href="/analise-ia" style={{ color: '#818cf8', textDecoration: 'none', fontSize: '14px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>🤖 IA & Prompts</a>
+        <nav className="desktop-nav" aria-label="Menu principal" style={{ display: 'flex', gap: '18px', alignItems: 'center' }}>
+          <Link href="/" aria-current={pathname === '/' ? 'page' : undefined} style={navLinkStyle('/')}>Dashboard</Link>
+          <Link href="/simulador" aria-current={pathname === '/simulador' ? 'page' : undefined} style={navLinkStyle('/simulador')}>Simulador</Link>
+          <Link href="/fechamento" aria-current={pathname === '/fechamento' ? 'page' : undefined} style={navLinkStyle('/fechamento')}>Fechamentos</Link>
+          <Link href="/filtros" aria-current={pathname === '/filtros' ? 'page' : undefined} style={navLinkStyle('/filtros')}>Filtros</Link>
+          <Link href="/estatisticas" aria-current={pathname === '/estatisticas' ? 'page' : undefined} style={navLinkStyle('/estatisticas')}>Estatísticas</Link>
+          <Link href="/analise-ia" aria-current={pathname === '/analise-ia' ? 'page' : undefined} style={{ ...navLinkStyle('/analise-ia', true), display: 'inline-flex', alignItems: 'center', gap: '4px' }}>🤖 IA & Prompts</Link>
           {email && (
-            <a href="/jogos-salvos" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', fontWeight: 500 }}>Meus Jogos</a>
+            <Link href="/jogos-salvos" aria-current={pathname === '/jogos-salvos' ? 'page' : undefined} style={navLinkStyle('/jogos-salvos')}>Meus Jogos</Link>
           )}
           
           {email ? (
@@ -68,13 +84,13 @@ export default function Header() {
               </button>
             </div>
           ) : (
-            <a 
+            <Link 
               href="/login" 
               className="btn btn-primary" 
               style={{ padding: '6px 16px', fontSize: '13px', marginLeft: '10px' }}
             >
               Entrar
-            </a>
+            </Link>
           )}
         </nav>
 
@@ -82,6 +98,7 @@ export default function Header() {
         <button
           onClick={() => setMenuAberto(!menuAberto)}
           className="mobile-menu-btn"
+          aria-expanded={menuAberto}
           aria-label={menuAberto ? "Fechar menu" : "Abrir menu"}
           style={{
             background: 'none',
@@ -98,7 +115,7 @@ export default function Header() {
 
       {/* Menu Gaveta Mobile */}
       {menuAberto && (
-        <div style={{
+        <nav aria-label="Menu mobile" style={{
           marginTop: '12px',
           paddingTop: '12px',
           borderTop: '1px solid rgba(255, 255, 255, 0.08)',
@@ -106,14 +123,14 @@ export default function Header() {
           flexDirection: 'column',
           gap: '12px'
         }}>
-          <a onClick={fecharMenu} href="/" style={{ color: '#cbd5e1', textDecoration: 'none', fontSize: '15px', padding: '8px 0', fontWeight: 500 }}>Dashboard</a>
-          <a onClick={fecharMenu} href="/simulador" style={{ color: '#cbd5e1', textDecoration: 'none', fontSize: '15px', padding: '8px 0', fontWeight: 500 }}>Simulador</a>
-          <a onClick={fecharMenu} href="/fechamento" style={{ color: '#cbd5e1', textDecoration: 'none', fontSize: '15px', padding: '8px 0', fontWeight: 500 }}>Fechamentos</a>
-          <a onClick={fecharMenu} href="/filtros" style={{ color: '#cbd5e1', textDecoration: 'none', fontSize: '15px', padding: '8px 0', fontWeight: 500 }}>Filtros</a>
-          <a onClick={fecharMenu} href="/estatisticas" style={{ color: '#cbd5e1', textDecoration: 'none', fontSize: '15px', padding: '8px 0', fontWeight: 500 }}>Estatísticas</a>
-          <a onClick={fecharMenu} href="/analise-ia" style={{ color: '#818cf8', textDecoration: 'none', fontSize: '15px', padding: '8px 0', fontWeight: 600 }}>🤖 IA & Prompts</a>
+          <Link onClick={fecharMenu} href="/" style={{ color: pathname === '/' ? '#10b981' : '#cbd5e1', textDecoration: 'none', fontSize: '15px', padding: '8px 0', fontWeight: pathname === '/' ? 700 : 500 }}>Dashboard</Link>
+          <Link onClick={fecharMenu} href="/simulador" style={{ color: pathname === '/simulador' ? '#10b981' : '#cbd5e1', textDecoration: 'none', fontSize: '15px', padding: '8px 0', fontWeight: pathname === '/simulador' ? 700 : 500 }}>Simulador</Link>
+          <Link onClick={fecharMenu} href="/fechamento" style={{ color: pathname === '/fechamento' ? '#10b981' : '#cbd5e1', textDecoration: 'none', fontSize: '15px', padding: '8px 0', fontWeight: pathname === '/fechamento' ? 700 : 500 }}>Fechamentos</Link>
+          <Link onClick={fecharMenu} href="/filtros" style={{ color: pathname === '/filtros' ? '#10b981' : '#cbd5e1', textDecoration: 'none', fontSize: '15px', padding: '8px 0', fontWeight: pathname === '/filtros' ? 700 : 500 }}>Filtros</Link>
+          <Link onClick={fecharMenu} href="/estatisticas" style={{ color: pathname === '/estatisticas' ? '#10b981' : '#cbd5e1', textDecoration: 'none', fontSize: '15px', padding: '8px 0', fontWeight: pathname === '/estatisticas' ? 700 : 500 }}>Estatísticas</Link>
+          <Link onClick={fecharMenu} href="/analise-ia" style={{ color: pathname === '/analise-ia' ? '#10b981' : '#818cf8', textDecoration: 'none', fontSize: '15px', padding: '8px 0', fontWeight: 700 }}>🤖 IA & Prompts</Link>
           {email && (
-            <a onClick={fecharMenu} href="/jogos-salvos" style={{ color: '#cbd5e1', textDecoration: 'none', fontSize: '15px', padding: '8px 0', fontWeight: 500 }}>Meus Jogos</a>
+            <Link onClick={fecharMenu} href="/jogos-salvos" style={{ color: pathname === '/jogos-salvos' ? '#10b981' : '#cbd5e1', textDecoration: 'none', fontSize: '15px', padding: '8px 0', fontWeight: pathname === '/jogos-salvos' ? 700 : 500 }}>Meus Jogos</Link>
           )}
           
           <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '12px', marginTop: '4px' }}>
@@ -129,17 +146,17 @@ export default function Header() {
                 </button>
               </div>
             ) : (
-              <a 
+              <Link 
                 onClick={fecharMenu}
                 href="/login" 
                 className="btn btn-primary" 
                 style={{ display: 'block', textAlign: 'center', padding: '8px 16px', fontSize: '14px' }}
               >
                 Entrar na Conta
-              </a>
+              </Link>
             )}
           </div>
-        </div>
+        </nav>
       )}
 
       {/* Estilos para responsividade em CSS Puro */}

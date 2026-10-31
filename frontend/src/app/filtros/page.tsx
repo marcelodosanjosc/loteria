@@ -9,6 +9,12 @@ export default function FiltrosPage() {
   const [jogosFiltrados, setJogosFiltrados] = useState<number[][]>([]);
   const [hasFiltered, setHasFiltered] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
+  const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
+
+  const showFeedback = (msg: string) => {
+    setFeedbackMsg(msg);
+    setTimeout(() => setFeedbackMsg(null), 4000);
+  };
 
   // Configuração dos filtros
   const [filtroPrimosMin, setFiltroPrimosMin] = useState<number>(1);
@@ -184,7 +190,7 @@ export default function FiltrosPage() {
           if (Array.isArray(parsed) && parsed.length > 0) {
             setModalidade(modTransfer);
             setJogosOriginais(parsed);
-            alert(`Sucesso: ${parsed.length} jogos carregados do Fechamento da ${modTransfer}!`);
+            showFeedback(`✓ ${parsed.length} jogos carregados do Fechamento da ${modTransfer}!`);
           }
         } catch (err) {
           console.error("Erro ao analisar jogos transferidos:", err);
@@ -209,7 +215,7 @@ export default function FiltrosPage() {
       setHasFiltered(true);
     } catch (err: any) {
       console.error(err);
-      alert("Erro ao aplicar filtros no backend.");
+      showFeedback("Erro ao aplicar filtros no backend.");
     } finally {
       setLoading(false);
     }
@@ -217,6 +223,11 @@ export default function FiltrosPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+      {feedbackMsg && (
+        <div role="status" style={{ padding: '12px 16px', borderRadius: '8px', backgroundColor: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.35)', color: '#34d399', fontSize: '14px', fontWeight: 600 }}>
+          {feedbackMsg}
+        </div>
+      )}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h2 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '8px' }}>Filtros Condicionais Avançados</h2>
@@ -260,18 +271,20 @@ export default function FiltrosPage() {
             <div style={{ display: 'flex', gap: '10px' }}>
               <input 
                 type="range" 
+                aria-label="Soma mínima"
                 min={config.somaMinVal} 
-                max={Math.floor((config.somaMinVal + config.somaMaxVal) / 2)} 
+                max={somaMax} 
                 value={somaMin} 
-                onChange={(e) => setSomaMin(Number(e.target.value))} 
+                onChange={(e) => setSomaMin(Math.min(Number(e.target.value), somaMax))} 
                 style={{ flexGrow: 1 }}
               />
               <input 
                 type="range" 
-                min={Math.floor((config.somaMinVal + config.somaMaxVal) / 2) + 1} 
+                aria-label="Soma máxima"
+                min={somaMin} 
                 max={config.somaMaxVal} 
                 value={somaMax} 
-                onChange={(e) => setSomaMax(Number(e.target.value))} 
+                onChange={(e) => setSomaMax(Math.max(Number(e.target.value), somaMin))} 
                 style={{ flexGrow: 1 }}
               />
             </div>
@@ -385,7 +398,7 @@ export default function FiltrosPage() {
                       onClick={() => {
                         const txt = jogosFiltrados.map(j => j.map(n => config.formatNumber(n)).join(' ')).join('\n');
                         navigator.clipboard.writeText(txt);
-                        alert(`${jogosFiltrados.length} jogos copiados em formato limpo!`);
+                        showFeedback(`✓ ${jogosFiltrados.length} jogos copiados em formato limpo!`);
                       }}
                       style={{ fontSize: '13px', padding: '6px 14px' }}
                     >

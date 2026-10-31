@@ -1,10 +1,13 @@
 import math
 import itertools
 import random
-import numpy as np
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 import logging
 import time
+try:
+    import numpy as np
+except ImportError:
+    np = None  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -14,21 +17,108 @@ def calcular_combinacao(n: int, k: int) -> int:
         return 0
     return math.comb(n, k)
 
-def calcular_probabilidade(dezenas_jogadas: int, total_bolas: int, dezenas_sorteio: int) -> Tuple[int, int, float]:
+def calcular_probabilidade(
+    total_globo: int,
+    dezenas_sorteadas: int,
+    dezenas_jogadas: int,
+    preco_aposta_simples: float = 5.0
+) -> dict:
     """
     Calcula:
     1. Total de combinacoes possíveis na loteria
     2. Quantidade de jogos simples gerados pela aposta múltipla
     3. Probabilidade de acerto (1 em X)
+    4. Custo estimado da aposta
     """
-    total_possivel = calcular_combinacao(total_bolas, dezenas_sorteio)
-    jogos_simples = calcular_combinacao(dezenas_jogadas, dezenas_sorteio)
+    total_combinacoes = calcular_combinacao(total_globo, dezenas_sorteadas)
+    jogos_simples = calcular_combinacao(dezenas_jogadas, dezenas_sorteadas)
     
     if jogos_simples == 0:
-        return total_possivel, 0, 0.0
+        return {
+            "total_combinacoes": total_combinacoes,
+            "jogos_simples": 0,
+            "probabilidade_1_em": 0.0,
+            "custo_estimado": 0.0,
+        }
         
-    probabilidade_1_em = total_possivel / jogos_simples
-    return total_possivel, jogos_simples, probabilidade_1_em
+    probabilidade_1_em = total_combinacoes / jogos_simples
+    custo_estimado = round(jogos_simples * preco_aposta_simples, 2)
+    return {
+        "total_combinacoes": total_combinacoes,
+        "jogos_simples": jogos_simples,
+        "probabilidade_1_em": round(probabilidade_1_em, 2),
+        "custo_estimado": custo_estimado,
+    }
+
+
+def _resolver_set_cover_matriz(
+    combinacoes_bilhetes: list,
+    combinacoes_sorteios: list,
+    dezenas_escolhidas: List[int],
+    garantia_acerto: int
+) -> List[List[int]]:
+    """Núcleo vetorizado de Set Cover em chunks compartilhado pelos algoritmos de fechamento."""
+    dezena_para_indice = {d: idx for idx, d in enumerate(dezenas_escolhidas)}
+
+    if np is None:
+        # shortcut: fallback bitwise pure-python para ambientes sem numpy instalado
+        t_masks = [sum(1 << dezena_para_indice[d] for d in c) for c in combinacoes_bilhetes]
+        d_masks = [sum(1 << dezena_para_indice[d] for d in c) for c in combinacoes_sorteios]
+        restantes = set(range(len(d_masks)))
+        ativos = set(range(len(t_masks)))
+        selecionados = []
+        while restantes and ativos:
+            best_idx = max(ativos, key=lambda ti: sum(1 for di in restantes if (t_masks[ti] & d_masks[di]).bit_count() >= garantia_acerto))
+            cobertos_agora = {di for di in restantes if (t_masks[best_idx] & d_masks[di]).bit_count() >= garantia_acerto}
+            if not cobertos_agora:
+                break
+            selecionados.append(best_idx)
+            ativos.remove(best_idx)
+            restantes -= cobertos_agora
+        return [sorted(list(combinacoes_bilhetes[idx])) for idx in selecionados]
+
+    n = len(dezenas_escolhidas)
+    T_bin = np.zeros((len(combinacoes_bilhetes), n), dtype=bool)
+    for idx, c in enumerate(combinacoes_bilhetes):
+        for d in c:
+            T_bin[idx, dezena_para_indice[d]] = True
+
+    D_bin = np.zeros((len(combinacoes_sorteios), n), dtype=bool)
+    for idx, c in enumerate(combinacoes_sorteios):
+        for d in c:
+            D_bin[idx, dezena_para_indice[d]] = True
+
+    cobertura = np.zeros((len(combinacoes_bilhetes), len(combinacoes_sorteios)), dtype=bool)
+    chunk_size = 2000
+    D_bin_T = D_bin.astype(np.int8).T
+
+    for i in range(0, len(combinacoes_bilhetes), chunk_size):
+        chunk_T = T_bin[i:i + chunk_size].astype(np.int8)
+        cobertura[i:i + chunk_size] = np.dot(chunk_T, D_bin_T) >= garantia_acerto
+
+    del T_bin, D_bin, D_bin_T
+
+    jogos_selecionados_indices = []
+    cobertos = np.zeros(len(combinacoes_sorteios), dtype=bool)
+    bilhetes_ativos = np.ones(len(combinacoes_bilhetes), dtype=bool)
+    cobertura_counts = np.sum(cobertura, axis=1)
+
+    while not np.all(cobertos):
+        best_idx = int(np.argmax(np.where(bilhetes_ativos, cobertura_counts, -1)))
+        if cobertura_counts[best_idx] <= 0:
+            break
+
+        jogos_selecionados_indices.append(best_idx)
+        bilhetes_ativos[best_idx] = False
+
+        newly_covered_indices = np.where(cobertura[best_idx] & ~cobertos)[0]
+        if len(newly_covered_indices) == 0:
+            break
+
+        cobertos[newly_covered_indices] = True
+        cobertura_counts -= np.sum(cobertura[:, newly_covered_indices], axis=1)
+
+    return [sorted(list(combinacoes_bilhetes[idx])) for idx in jogos_selecionados_indices]
 
 def gerar_fechamento_guloso(
     dezenas_escolhidas: List[int],
@@ -115,80 +205,15 @@ def gerar_fechamento_guloso(
     else:
         combinacoes_sorteios = list(itertools.combinations(dezenas_escolhidas, condicao_acerto))
     
-    # Criar mapeamento de dezenas para índices 0..n-1
-    dezena_para_indice = {d: idx for idx, d in enumerate(dezenas_escolhidas)}
-    
-    # Representar os conjuntos como matrizes binárias de tamanho (M, n)
-    T_bin = np.zeros((len(combinacoes_bilhetes), n), dtype=bool)
-    for idx, c in enumerate(combinacoes_bilhetes):
-        for d in c:
-            T_bin[idx, dezena_para_indice[d]] = True
-            
-    D_bin = np.zeros((len(combinacoes_sorteios), n), dtype=bool)
-    for idx, c in enumerate(combinacoes_sorteios):
-        for d in c:
-            D_bin[idx, dezena_para_indice[d]] = True
-            
-    # 4. Multiplicação de matrizes em blocos (Chunks) para obter cobertura de forma segura
-    # Isso impede picos de alocação de ~24GB de RAM na conversão para int32/int64
-    logger.info("Construindo matriz de cobertura de forma chunked...")
-    cobertura = np.zeros((len(combinacoes_bilhetes), len(combinacoes_sorteios)), dtype=bool)
-    chunk_size = 2000
-    D_bin_T = D_bin.astype(np.int8).T
-    
-    for i in range(0, len(combinacoes_bilhetes), chunk_size):
-        chunk_T = T_bin[i:i+chunk_size].astype(np.int8)
-        # np.dot calcula o produto escalar que representa o tamanho da intersecção.
-        # Comparar com garantia_acerto gera booleanos diretamente, evitando manter int32 em memória.
-        cobertura[i:i+chunk_size] = np.dot(chunk_T, D_bin_T) >= garantia_acerto
-        
-    # Limpeza imediata de memória dos vetores binários não mais necessários
-    del T_bin
-    del D_bin
-    del D_bin_T
-    
-    # 5. Algoritmo Guloso Set Cover otimizado de forma incremental 1D vetorizada
-    logger.info("Executando laço de otimização set cover...")
-    jogos_selecionados_indices = []
-    cobertos = np.zeros(len(combinacoes_sorteios), dtype=bool)
-    bilhetes_ativos = np.ones(len(combinacoes_bilhetes), dtype=bool)
-    
-    # Rastreia de forma 1D quantos cenários ainda não cobertos cada bilhete cobre.
-    cobertura_counts = np.sum(cobertura, axis=1)
-    
-    # Executa até cobrir todos os cenários ou não haver mais bilhetes úteis
-    while not np.all(cobertos):
-        # Encontra o bilhete ativo que cobre mais cenários restantes
-        best_idx = np.argmax(np.where(bilhetes_ativos, cobertura_counts, -1))
-        
-        if cobertura_counts[best_idx] <= 0:
-            break
-            
-        # Adiciona o bilhete selecionado
-        jogos_selecionados_indices.append(best_idx)
-        bilhetes_ativos[best_idx] = False
-        
-        # Identifica novos cenários que foram cobertos por este bilhete
-        novas_coberturas = cobertura[best_idx] & ~cobertos
-        newly_covered_indices = np.where(novas_coberturas)[0]
-        
-        if len(newly_covered_indices) == 0:
-            break
-            
-        cobertos[newly_covered_indices] = True
-        
-        # Atualiza a contagem dos bilhetes ativos de forma 100% vetorizada e rápida.
-        # Em vez de re-escanear a matriz 2D inteira, deduzimos as contagens das colunas cobertas.
-        cobertura_counts -= np.sum(cobertura[:, newly_covered_indices], axis=1)
-        
+    jogos_selecionados = _resolver_set_cover_matriz(
+        combinacoes_bilhetes, combinacoes_sorteios, dezenas_escolhidas, garantia_acerto
+    )
     tempo_decorrido = time.time() - inicio_tempo
     logger.info(
-        f"Fechamento finalizado: {len(jogos_selecionados_indices)} jogos selecionados "
+        f"Fechamento finalizado: {len(jogos_selecionados)} jogos selecionados "
         f"em {tempo_decorrido:.3f} segundos."
     )
-    
-    # Converter índices de volta para dezenas reais
-    return [sorted(list(combinacoes_bilhetes[idx])) for idx in jogos_selecionados_indices]
+    return jogos_selecionados
 
 
 def gerar_fechamento_lotomania_avancado(
@@ -303,73 +328,12 @@ def gerar_fechamento_lotomania_avancado(
     combinacoes_sorteios = list(cenarios_set)
     logger.info(f"Cenários amostrados: {len(combinacoes_sorteios)} cenários representativos.")
 
-    # --- Fase 3: Construção das matrizes binárias (representação vetorial) ---
-
-    dezena_para_indice = {d: idx for idx, d in enumerate(dezenas_escolhidas)}
-
-    T_bin = np.zeros((len(combinacoes_bilhetes), n), dtype=bool)
-    for idx, c in enumerate(combinacoes_bilhetes):
-        for d in c:
-            T_bin[idx, dezena_para_indice[d]] = True
-
-    D_bin = np.zeros((len(combinacoes_sorteios), n), dtype=bool)
-    for idx, c in enumerate(combinacoes_sorteios):
-        for d in c:
-            D_bin[idx, dezena_para_indice[d]] = True
-
-    # --- Fase 4: Multiplicação de matrizes chunked (cobertura) ---
-
-    logger.info("Construindo matriz de cobertura (chunked)...")
-    cobertura = np.zeros((len(combinacoes_bilhetes), len(combinacoes_sorteios)), dtype=bool)
-    chunk_size = 2000
-    D_bin_T = D_bin.astype(np.int8).T
-
-    for i in range(0, len(combinacoes_bilhetes), chunk_size):
-        chunk_T = T_bin[i:i + chunk_size].astype(np.int8)
-        cobertura[i:i + chunk_size] = np.dot(chunk_T, D_bin_T) >= garantia_acerto
-
-    # Limpeza de memória imediata
-    del T_bin
-    del D_bin
-    del D_bin_T
-
-    # --- Fase 5: Algoritmo Guloso Set Cover vetorizado ---
-
-    logger.info("Executando Set Cover guloso vetorizado...")
-    jogos_selecionados_indices = []
-    cobertos = np.zeros(len(combinacoes_sorteios), dtype=bool)
-    bilhetes_ativos = np.ones(len(combinacoes_bilhetes), dtype=bool)
-
-    cobertura_counts = np.sum(cobertura, axis=1)
-
-    while not np.all(cobertos):
-        best_idx = np.argmax(np.where(bilhetes_ativos, cobertura_counts, -1))
-
-        if cobertura_counts[best_idx] <= 0:
-            break
-
-        jogos_selecionados_indices.append(best_idx)
-        bilhetes_ativos[best_idx] = False
-
-        novas_coberturas = cobertura[best_idx] & ~cobertos
-        newly_covered_indices = np.where(novas_coberturas)[0]
-
-        if len(newly_covered_indices) == 0:
-            break
-
-        cobertos[newly_covered_indices] = True
-        cobertura_counts -= np.sum(cobertura[:, newly_covered_indices], axis=1)
-
-    # --- Relatório final ---
-
+    jogos_selecionados = _resolver_set_cover_matriz(
+        combinacoes_bilhetes, combinacoes_sorteios, dezenas_escolhidas, garantia_acerto
+    )
     tempo_decorrido = time.time() - inicio_tempo
-    cobertura_pct = np.sum(cobertos) / len(combinacoes_sorteios) * 100
-
     logger.info(
         f"Fechamento avançado Lotomania FINALIZADO: "
-        f"{len(jogos_selecionados_indices)} cartões selecionados, "
-        f"cobertura estatística: {cobertura_pct:.1f}%, "
-        f"tempo: {tempo_decorrido:.3f}s"
+        f"{len(jogos_selecionados)} cartões selecionados em {tempo_decorrido:.3f}s"
     )
-
-    return [sorted(list(combinacoes_bilhetes[idx])) for idx in jogos_selecionados_indices]
+    return jogos_selecionados

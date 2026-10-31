@@ -1,7 +1,9 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import ResponsibleGaming from '../components/ResponsibleGaming';
+import { loteriaApi } from '../services/api';
 
 interface LoteriaSummary {
   nome: string;
@@ -13,7 +15,7 @@ interface LoteriaSummary {
 }
 
 export default function Dashboard() {
-  const [loterias] = useState<LoteriaSummary[]>([
+  const [loterias, setLoterias] = useState<LoteriaSummary[]>([
     {
       nome: 'Mega-Sena',
       slug: 'mega-sena',
@@ -39,6 +41,35 @@ export default function Dashboard() {
       acumulado: 'R$ 7.200.000,00'
     }
   ]);
+
+  useEffect(() => {
+    Promise.all(
+      loterias.map(async (lot) => {
+        try {
+          const res = await loteriaApi.getSorteios(lot.slug, 1);
+          if (res && res.length > 0) {
+            const ultimo = res[0];
+            const dataFmt = ultimo.data_sorteio.includes('-')
+              ? ultimo.data_sorteio.split('-').reverse().join('/')
+              : ultimo.data_sorteio;
+            const valorFmt = ultimo.valor_acumulado && ultimo.valor_acumulado > 0
+              ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(ultimo.valor_acumulado)
+              : lot.acumulado;
+            return {
+              ...lot,
+              concurso: ultimo.numero_concurso,
+              data: dataFmt,
+              dezenas: ultimo.dezenas_sorteadas,
+              acumulado: valorFmt,
+            };
+          }
+        } catch {
+          // Mantém o fallback estático caso o backend esteja offline
+        }
+        return lot;
+      })
+    ).then(setLoterias);
+  }, []);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
@@ -92,7 +123,7 @@ export default function Dashboard() {
             <p style={{ fontSize: '14px', color: '#94a3b8', flexGrow: 1 }}>
               Marque dezenas no volante interativo e veja a chance real de acerto matemático, quantidade de apostas simples equivalentes e o custo em tempo real.
             </p>
-            <a href="/simulador" className="btn btn-primary" style={{ marginTop: '12px' }}>Acessar Simulador</a>
+            <Link href="/simulador" className="btn btn-primary" style={{ marginTop: '12px' }}>Acessar Simulador</Link>
           </div>
 
           <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -100,7 +131,7 @@ export default function Dashboard() {
             <p style={{ fontSize: '14px', color: '#94a3b8', flexGrow: 1 }}>
               Crie matrizes matemáticas para cercar faixas de premiação (ex: garantir quadra acertando as 6 dezenas no grupo de 12 selecionadas) gastando menos.
             </p>
-            <a href="/fechamento" className="btn btn-primary" style={{ marginTop: '12px', backgroundColor: '#6366f1' }}>Criar Fechamento</a>
+            <Link href="/fechamento" className="btn btn-primary" style={{ marginTop: '12px', backgroundColor: '#6366f1' }}>Criar Fechamento</Link>
           </div>
 
           <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -108,7 +139,7 @@ export default function Dashboard() {
             <p style={{ fontSize: '14px', color: '#94a3b8', flexGrow: 1 }}>
               Remova jogos indesejáveis ou estatisticamente improváveis do seu conjunto gerado aplicando regras de números primos, Fibonacci, limites de soma e consecutivos.
             </p>
-            <a href="/filtros" className="btn btn-primary" style={{ marginTop: '12px', backgroundColor: '#f59e0b' }}>Filtrar Jogos</a>
+            <Link href="/filtros" className="btn btn-primary" style={{ marginTop: '12px', backgroundColor: '#f59e0b' }}>Filtrar Jogos</Link>
           </div>
 
           <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -116,7 +147,7 @@ export default function Dashboard() {
             <p style={{ fontSize: '14px', color: '#94a3b8', flexGrow: 1 }}>
               Gere os Top 5 Jogos Fortes com score de equilíbrio estatístico, copie prompts prontos para DeepSeek/ChatGPT com dados reais e faça backtesting com teste cego.
             </p>
-            <a href="/analise-ia" className="btn btn-primary" style={{ marginTop: '12px', backgroundColor: '#6366f1' }}>Explorar com IA</a>
+            <Link href="/analise-ia" className="btn btn-primary" style={{ marginTop: '12px', backgroundColor: '#6366f1' }}>Explorar com IA</Link>
           </div>
         </div>
       </div>

@@ -8,7 +8,6 @@ from app.services.advanced_analytics import (
     obter_linha_coluna,
     processar_estatisticas_avancadas
 )
-from app.models.lottery import Sorteio
 
 class TestAdvancedAnalytics(unittest.TestCase):
     def test_moldura_centro_lotofacil_sets(self):
@@ -31,12 +30,12 @@ class TestAdvancedAnalytics(unittest.TestCase):
         self.assertEqual(obter_linha_coluna(25, 5), (5, 5))
 
     def test_processar_estatisticas_avancadas(self):
-        s1 = MagicMock(spec=Sorteio)
+        s1 = MagicMock()
         s1.numero_concurso = 3002
         s1.data_sorteio = date(2026, 8, 18)
         s1.dezenas_sorteadas = [1, 2, 3, 4, 5, 6, 10, 11, 15, 16, 20, 21, 22, 23, 24]
 
-        s2 = MagicMock(spec=Sorteio)
+        s2 = MagicMock()
         s2.numero_concurso = 3001
         s2.data_sorteio = date(2026, 8, 17)
         s2.dezenas_sorteadas = [1, 2, 3, 4, 5, 7, 8, 9, 12, 13, 14, 17, 18, 19, 25]

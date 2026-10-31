@@ -125,70 +125,7 @@ async def sincronizar_modalidade_especifica(
 @router.get("/{slug}/estatisticas", response_model=EstatisticaResponse)
 async def obter_estatisticas_locais(slug: str, db: Session = Depends(get_db)):
     """Calcula estatísticas básicas de atrasos, frequências e paridades com base no histórico local."""
-    modalidade = db.query(Modalidade).filter(Modalidade.codigo_slug == slug).first()
-    if not modalidade:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Modalidade {slug} não cadastrada."
-        )
-    
-    await ensure_modalidade_sorteios(slug, modalidade.id, db)
-    sorteios = db.query(Sorteio).filter(Sorteio.modalidade_id == modalidade.id).order_by(Sorteio.numero_concurso.desc()).all()
-    
-    if not sorteios:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Nenhum sorteio cadastrado para a modalidade '{slug}'. Execute a sincronização."
-        )
-        
-    total_dezenas = modalidade.total_dezenas_globo
-    
-    frequencia = {i: 0 for i in range(1, total_dezenas + 1)}
-    ultimo_concurso_numero = sorteios[0].numero_concurso
-    ultimo_sorteio_dezena = {i: 0 for i in range(1, total_dezenas + 1)}
-    
-    total_pares = 0
-    total_numeros_processados = 0
-    somas_historico = []
-    
-    for s in sorteios:
-        soma = sum(s.dezenas_sorteadas)
-        if len(somas_historico) < 50:
-            somas_historico.append(soma)
-            
-        for d in s.dezenas_sorteadas:
-            if 1 <= d <= total_dezenas:
-                frequencia[d] += 1
-                if d % 2 == 0:
-                    total_pares += 1
-                total_numeros_processados += 1
-                
-                if ultimo_sorteio_dezena[d] == 0:
-                    ultimo_sorteio_dezena[d] = s.numero_concurso
-                    
-    atraso = {}
-    for i in range(1, total_dezenas + 1):
-        concurso_ocorrido = ultimo_sorteio_dezena[i]
-        if concurso_ocorrido == 0:
-            atraso[i] = len(sorteios)
-        else:
-            atraso[i] = ultimo_concurso_numero - concurso_ocorrido
-            
-    pares_pct = 0.0
-    impares_pct = 0.0
-    if total_numeros_processados > 0:
-        pares_pct = (total_pares / total_numeros_processados) * 100
-        impares_pct = 100.0 - pares_pct
-        
-    return {
-        "frequencia": frequencia,
-        "atraso": atraso,
-        "pares_impares": {
-            "pares": round(pares_pct, 2),
-            "impares": round(impares_pct, 2)
-        },
-        "somas_historico": somas_historico[::-1]
-    }
+    return await obter_estatisticas_avancadas_endpoint(slug=slug, limit=None, db=db)
 
 @router.get("/{slug}/estatisticas-avancadas", response_model=EstatisticaAvancadaResponse)
 async def obter_estatisticas_avancadas_endpoint(
@@ -219,7 +156,7 @@ async def obter_estatisticas_avancadas_endpoint(
     return processar_estatisticas_avancadas(
         sorteios=sorteios,
         total_dezenas=modalidade.total_dezenas_globo or 25,
-        colunas_volante=5 if slug in ("lotofacil", "dupla-sena") else 10,
+        colunas_volante=5 if slug == "lotofacil" else 10,
         slug=slug
     )
 
@@ -249,25 +186,21 @@ async def gerar_jogos_ia_endpoint(
             detail=f"Nenhum concurso encontrado para basear a geração estatística da modalidade {slug}."
         )
         
-    ultimo_sorteio = sorteios[0].dezenas_sorteadas if sorteios else None
-    
-    freq = {i: 0 for i in range(1, (modalidade.total_dezenas_globo or 25) + 1)}
-    for s in sorteios:
-        for d in s.dezenas_sorteadas:
-            if d in freq:
-                freq[d] += 1
-                
-    quentes = [num for num, _ in sorted(freq.items(), key=lambda x: x[1], reverse=True)[:8]]
-    atrasadas = [num for num, _ in sorted(freq.items(), key=lambda x: x[1])[:6]]
+    stats_calc = processar_estatisticas_avancadas(
+        sorteios=sorteios,
+        total_dezenas=modalidade.total_dezenas_globo or 25,
+        colunas_volante=5 if slug == "lotofacil" else 10,
+        slug=slug
+    )
     
     jogos_resultado = gerar_top_jogos_inteligentes(
         modalidade_slug=slug,
         total_dezenas_globo=modalidade.total_dezenas_globo or 25,
         dezenas_por_jogo=modalidade.min_dezenas_aposta or 15,
         quantidade_jogos=req.quantidade_jogos or 5,
-        ultimo_sorteio=ultimo_sorteio,
-        dezenas_quentes=quentes,
-        dezenas_atrasadas=atrasadas,
+        ultimo_sorteio=sorteios[0].dezenas_sorteadas,
+        dezenas_quentes=stats_calc["dezenas_quentes"][:8],
+        dezenas_atrasadas=stats_calc["dezenas_atrasadas"][:6],
         dezenas_fixas=req.dezenas_fixas,
         dezenas_excluidas=req.dezenas_excluidas
     )

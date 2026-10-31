@@ -1,28 +1,14 @@
 import random
 from typing import List, Dict, Any, Optional, Set
 from collections import Counter
-LOTOFACIL_MOLDURA: Set[int] = {1, 2, 3, 4, 5, 6, 10, 11, 15, 16, 20, 21, 22, 23, 24, 25}
-LOTOFACIL_CENTRO: Set[int] = {7, 8, 9, 12, 13, 14, 17, 18, 19}
+from app.services.filters import (
+    PRIMOS as PRIMOS_ATE_100,
+    FIBONACCI as FIBONACCI_ATE_100,
+    MOLDURA_LOTOFACIL as LOTOFACIL_MOLDURA,
+    obter_maior_sequencia_consecutiva as calcular_maior_sequencia_consecutiva
+)
 
-def calcular_maior_sequencia_consecutiva(dezenas: List[int]) -> int:
-    if not dezenas:
-        return 0
-    ordenadas = sorted(dezenas)
-    max_seq, atual_seq = 1, 1
-    for i in range(1, len(ordenadas)):
-        if ordenadas[i] == ordenadas[i - 1] + 1:
-            atual_seq += 1
-            max_seq = max(max_seq, atual_seq)
-        elif ordenadas[i] != ordenadas[i - 1]:
-            atual_seq = 1
-    return max_seq
-
-
-PRIMOS_ATE_100: Set[int] = {
-    2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47,
-    53, 59, 61, 67, 71, 73, 79, 83, 89, 97
-}
-FIBONACCI_ATE_100: Set[int] = {1, 2, 3, 5, 8, 13, 21, 34, 55, 89}
+LOTOFACIL_CENTRO: Set[int] = set(range(1, 26)) - LOTOFACIL_MOLDURA
 
 
 def avaliar_jogo_lotofacil(

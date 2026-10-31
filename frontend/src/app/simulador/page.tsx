@@ -200,6 +200,9 @@ export default function SimuladorPage() {
               return (
                 <button
                   key={num}
+                  type="button"
+                  aria-pressed={isSelected}
+                  aria-label={`Dezena ${config.formatNumber(num)}`}
                   className={`lottery-ball ${modalidade} ${isSelected ? 'active' : ''}`}
                   onClick={() => toggleNumber(num)}
                   style={{

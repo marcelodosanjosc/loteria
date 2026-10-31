@@ -6,11 +6,10 @@ from app.services.smart_generator import (
     gerar_top_jogos_inteligentes
 )
 from app.services.ai_copilot import (
-    PROMPT_TEMPLATES,
+    obter_catalogo_prompts_modalidade,
     construir_prompt_ia,
     executar_teste_cego
 )
-from app.models.lottery import Sorteio
 
 class TestSmartGeneratorAndCopilot(unittest.TestCase):
     def test_avaliar_jogo_lotofacil(self):
@@ -46,8 +45,8 @@ class TestSmartGeneratorAndCopilot(unittest.TestCase):
             self.assertGreater(len(item["justificativa"]), 0)
 
     def test_ai_copilot_templates_and_prompt(self):
-        self.assertEqual(len(PROMPT_TEMPLATES), 7)
-        s1 = MagicMock(spec=Sorteio)
+        self.assertEqual(len(obter_catalogo_prompts_modalidade("lotofacil")), 5)
+        s1 = MagicMock()
         s1.numero_concurso = 3001
         s1.data_sorteio = date(2026, 8, 18)
         s1.dezenas_sorteadas = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
@@ -63,12 +62,12 @@ class TestSmartGeneratorAndCopilot(unittest.TestCase):
         self.assertIn("3001", prompt_res["prompt_formatado"])
 
     def test_executar_teste_cego(self):
-        s1 = MagicMock(spec=Sorteio)
+        s1 = MagicMock()
         s1.numero_concurso = 3002
         s1.data_sorteio = date(2026, 8, 18)
         s1.dezenas_sorteadas = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
-        s2 = MagicMock(spec=Sorteio)
+        s2 = MagicMock()
         s2.numero_concurso = 3001
         s2.data_sorteio = date(2026, 8, 17)
         s2.dezenas_sorteadas = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 16, 17, 18, 19, 20]

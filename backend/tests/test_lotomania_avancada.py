@@ -11,10 +11,25 @@ from app.services.filters import (
 )
 from app.services.combinatorics import (
     gerar_fechamento_lotomania_avancado,
-    gerar_fechamento_guloso
+    gerar_fechamento_guloso,
+    calcular_probabilidade
 )
 
 class TestLotomaniaAvancada(unittest.TestCase):
+    def test_calcular_probabilidade_schema_compat(self):
+        res = calcular_probabilidade(
+            total_globo=60,
+            dezenas_sorteadas=6,
+            dezenas_jogadas=6,
+            preco_aposta_simples=5.0
+        )
+        self.assertEqual(res["total_combinacoes"], 50063860)
+        self.assertEqual(res["jogos_simples"], 1)
+        self.assertEqual(res["probabilidade_1_em"], 50063860.0)
+        self.assertEqual(res["custo_estimado"], 5.0)
+        res_zero = calcular_probabilidade(60, 6, 5, 5.0)
+        self.assertEqual(res_zero["jogos_simples"], 0)
+        self.assertEqual(res_zero["custo_estimado"], 0.0)
     def test_obter_quadrante(self):
         self.assertEqual(obter_quadrante(1), 0)
         self.assertEqual(obter_quadrante(4), 0)
