@@ -24,11 +24,16 @@ class JogoUsuarioCreate(BaseModel):
     tipo_geracao: str
     jogos: List[List[int]]
 
+class JogoUsuarioUpdate(BaseModel):
+    jogos: List[List[int]]
+    tipo_geracao: Optional[str] = None
+
 class JogoUsuarioResponse(BaseModel):
     id: UUID
     usuario_id: UUID
     modalidade_id: UUID
     modalidade_nome: Optional[str] = None
+    modalidade_slug: Optional[str] = None
     tipo_geracao: str
     jogos: List[List[int]]
     criado_em: datetime

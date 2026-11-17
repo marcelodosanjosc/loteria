@@ -730,17 +730,30 @@ function AnaliseIAContent() {
                 <h4 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>
                   Prompt Especializado da {modalidadeAtiva.label} Pronto para Copiar:
                 </h4>
-                <button
-                  onClick={handleCopiarPrompt}
-                  className="btn btn-primary"
-                  style={{
-                    backgroundColor: copiado ? '#10b981' : '#6366f1',
-                    fontSize: '13px',
-                    padding: '6px 16px',
-                  }}
-                >
-                  {copiado ? '✓ Copiado com Sucesso!' : '📋 Copiar Prompt'}
-                </button>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={handleCopiarPrompt}
+                    className="btn btn-primary"
+                    style={{
+                      backgroundColor: copiado ? '#10b981' : '#6366f1',
+                      fontSize: '13px',
+                      padding: '6px 16px',
+                    }}
+                  >
+                    {copiado ? '✓ Copiado com Sucesso!' : '📋 Copiar Prompt'}
+                  </button>
+                  <a
+                    href={`/jogos-salvos?novo=1&modalidade=${modalidade}`}
+                    className="btn btn-secondary"
+                    style={{
+                      fontSize: '13px',
+                      padding: '6px 14px',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    📥 Colar Jogos em Meus Jogos
+                  </a>
+                </div>
               </div>
 
               <textarea

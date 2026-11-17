@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { loteriaApi } from '../../services/api';
 
 export default function FiltrosPage() {
@@ -145,7 +145,9 @@ export default function FiltrosPage() {
     }
   }, [modalidade]);
 
-  // Sincroniza estados dos filtros ao mudar a modalidade
+  const pendingTransferRef = useRef<{ modalidade: string; jogos: number[][]; consumed: boolean } | null>(null);
+
+  // Sincroniza estados dos filtros ao mudar a modalidade e carrega jogos transferidos via sessionStorage
   useEffect(() => {
     setFiltroPrimosMin(config.defaultPrimosMin);
     setFiltroPrimosMax(config.defaultPrimosMax);
@@ -157,47 +159,39 @@ export default function FiltrosPage() {
     setSomaMax(config.defaultSomaMax);
     setLimiteConsecutivos(config.defaultConsecutivos);
 
-    // Se houver jogos no sessionStorage para essa modalidade específica, usa-os
     const transfer = sessionStorage.getItem('lottomath_jogos_transfer');
     const modTransfer = sessionStorage.getItem('lottomath_modalidade_transfer');
-    if (transfer && modTransfer === modalidade) {
+    if (transfer && modTransfer) {
       try {
         const parsed = JSON.parse(transfer);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setJogosOriginais(parsed);
-          // Limpa do sessionStorage após carregar
+          pendingTransferRef.current = { modalidade: modTransfer, jogos: parsed, consumed: false };
           sessionStorage.removeItem('lottomath_jogos_transfer');
           sessionStorage.removeItem('lottomath_modalidade_transfer');
+          if (modTransfer !== modalidade) {
+            setModalidade(modTransfer);
+            return;
+          }
         }
       } catch (err) {
-        console.error(err);
+        console.error("Erro ao analisar jogos transferidos:", err);
       }
+    }
+
+    if (pendingTransferRef.current && pendingTransferRef.current.modalidade === modalidade) {
+      pendingTransferRef.current.consumed = true;
+      setJogosOriginais(pendingTransferRef.current.jogos);
+      showFeedback(`✓ ${pendingTransferRef.current.jogos.length} jogos carregados da ${config.label}!`);
+    } else if (pendingTransferRef.current && !pendingTransferRef.current.consumed) {
+      // Aguardando troca de modalidade disparada pela transferência
+      return;
     } else {
+      pendingTransferRef.current = null;
       setJogosOriginais(config.sampleGames);
     }
     setJogosFiltrados([]);
     setHasFiltered(false);
   }, [modalidade, config]);
-
-  // Carregamento de jogos via sessionStorage em primeiro render
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const transfer = sessionStorage.getItem('lottomath_jogos_transfer');
-      const modTransfer = sessionStorage.getItem('lottomath_modalidade_transfer');
-      if (transfer && modTransfer) {
-        try {
-          const parsed = JSON.parse(transfer);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setModalidade(modTransfer);
-            setJogosOriginais(parsed);
-            showFeedback(`✓ ${parsed.length} jogos carregados do Fechamento da ${modTransfer}!`);
-          }
-        } catch (err) {
-          console.error("Erro ao analisar jogos transferidos:", err);
-        }
-      }
-    }
-  }, []);
 
   const aplicarFiltrosBackend = async () => {
     setLoading(true);

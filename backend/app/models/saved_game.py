@@ -1,3 +1,4 @@
+from typing import Optional
 from sqlalchemy import Column, String, ForeignKey, DateTime, text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
@@ -29,3 +30,7 @@ class JogoUsuario(Base):
     @property
     def modalidade_nome(self) -> str:
         return self.modalidade.nome if self.modalidade else "Loteria"
+
+    @property
+    def modalidade_slug(self) -> Optional[str]:
+        return self.modalidade.codigo_slug if self.modalidade else None

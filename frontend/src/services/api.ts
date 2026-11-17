@@ -30,6 +30,7 @@ export interface JogoUsuarioResponse {
   usuario_id: string;
   modalidade_id: string;
   modalidade_nome?: string;
+  modalidade_slug?: string;
   tipo_geracao: string;
   jogos: number[][];
   criado_em: string;
@@ -294,6 +295,19 @@ export const loteriaApi = {
   listarJogos: async (): Promise<JogoUsuarioResponse[]> => {
     const response = await api.get('/jogos/');
     return response.data;
+  },
+
+  atualizarJogo: async (jogoId: string, jogos: number[][], tipoGeracao?: string): Promise<JogoUsuarioResponse> => {
+    const payload: { jogos: number[][]; tipo_geracao?: string } = { jogos };
+    if (tipoGeracao) {
+      payload.tipo_geracao = tipoGeracao;
+    }
+    const response = await api.put(`/jogos/${jogoId}`, payload);
+    return response.data;
+  },
+
+  deletarJogo: async (jogoId: string): Promise<void> => {
+    await api.delete(`/jogos/${jogoId}`);
   },
 };
 
